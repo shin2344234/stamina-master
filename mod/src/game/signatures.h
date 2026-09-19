@@ -90,13 +90,34 @@ namespace us::sig
     inline constexpr unsigned kOff_Skill_UseResourceStatList       = 0xA8;
     inline constexpr unsigned kOff_Skill_UseDriverResourceStatList = 0xC8;
 
-    // A UseResourceStat. _statusInfo is a StaticInfoWrapper<...,ushort>, so it
-    // names its status by the u16 row index and not by the key. That is why the
-    // first pointer walk found nothing: it hunted the u32 key 1000026 and the
-    // def address, and the record holds neither.
+    // A list field is {items, size, capacity} and **not** {begin, end}. Read
+    // off its reader at RVA 0x01527950, which both list fields above call:
+    // `add edx, [rbx+8]` takes the size, `mov eax, [rbx+0xC]` the capacity, and
+    // the append does `lea rcx,[rax+rax*2]` then `[rax+rcx*8]`, so an element
+    // is size*24 bytes along. Treating +0x08 as an end pointer is what made
+    // every row on the third pass report an empty list, including ones that
+    // plainly have entries: the size failed the plausible-pointer test and the
+    // read was abandoned before anything was looked at.
+    inline constexpr unsigned kOff_List_Items = 0x00; // void*
+    inline constexpr unsigned kOff_List_Size  = 0x08; // u32
+    inline constexpr unsigned kOff_List_Cap   = 0x0C; // u32
+
+    // A UseResourceStat, 0x18 bytes. _statusInfo is a
+    // StaticInfoWrapper<...,ushort>, so it names its status by the u16 row
+    // index and not by the key. That is why the first pointer walk found
+    // nothing: it hunted the u32 key 1000026 and the def address, and an entry
+    // holds neither.
+    //
+    // The reader's own zero-initialised template confirms every offset:
+    // byte 3 at +0x00, 0xFFFF at +0x02, 0 at +0x04, 0 at +0x08, 0xFFFFFFFF at
+    // +0x10, which is the two status references at +0x10 and +0x12 set to none.
+    inline constexpr unsigned kRec_UseResourceStatBytes = 0x18;
+    inline constexpr unsigned kOff_URS_StatType       = 0x00; // u8
     inline constexpr unsigned kOff_URS_StatusInfo     = 0x02; // u16 row index
     inline constexpr unsigned kOff_URS_IsRegen        = 0x04; // u8
     inline constexpr unsigned kOff_URS_VaryStatAmount = 0x08; // 8 bytes, the cost
+    inline constexpr unsigned kOff_URS_IncreaseStatus = 0x10; // u16
+    inline constexpr unsigned kOff_URS_DecreaseStatus = 0x12; // u16
 
     // How many of the 2,069 skill rows carry kStatusKey_Stamina somewhere in
     // the record, counted over the extracted table. The probe reports the
