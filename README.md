@@ -28,12 +28,12 @@ extra pack groups, `dmmgen` and `dmmsa`, that overwriting it would remove.
     MountPercent=25         15 things you do while mounted
     Probe=0                 write the research report and a line per skill changed
 
-Each is a percentage of the game's own cost. 100 leaves that kind alone and 0
-removes its cost outright. Anything outside 0 to 100 refuses the whole write,
-including the settings that were in range.
+Each is a percentage of the game's own cost, so 100 leaves that kind alone and
+0 removes its cost outright. A value outside 0 to 100 refuses the whole write,
+including whichever settings were in range.
 
-Skills that give stamina back are never touched, so food and rest restore what
-they always did. 50 of the 256 entries are those.
+Skills that give stamina back, 50 of the 256 entries, are never touched. Food
+and rest restore what they always did.
 
 ## Why those three kinds and not movement against combat
 
