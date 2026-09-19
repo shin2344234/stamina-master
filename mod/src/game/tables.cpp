@@ -215,6 +215,29 @@ namespace us::tables
         return rows;
     }
 
+    unsigned RecordStride(const Table& t, uint32_t sample)
+    {
+        // Small fixed histogram: a def object is a few hundred bytes and a
+        // stride outside that range is a pool boundary, not the record size.
+        struct Bucket { unsigned gap; uint32_t n; } seen[16] = {};
+        int used = 0;
+        uintptr_t prev = Def(t, 0);
+        for (uint32_t r = 1; r < t.rows && r < sample; ++r)
+        {
+            const uintptr_t cur = Def(t, r);
+            if (!prev || !cur) { prev = cur; continue; }
+            const uintptr_t gap = cur - prev;
+            prev = cur;
+            if (gap == 0 || gap > 0x2000) continue;
+            int i = 0;
+            for (; i < used; ++i) if (seen[i].gap == gap) { ++seen[i].n; break; }
+            if (i == used && used < 16) { seen[used].gap = static_cast<unsigned>(gap); seen[used].n = 1; ++used; }
+        }
+        unsigned best = 0; uint32_t bestN = 0;
+        for (int i = 0; i < used; ++i) if (seen[i].n > bestN) { bestN = seen[i].n; best = seen[i].gap; }
+        return bestN >= 4 ? best : 0;
+    }
+
     bool WriteF32(uintptr_t at, float v)
     {
         DWORD old = 0;

@@ -80,4 +80,8 @@ namespace us::sig
     inline constexpr const char* kSkillKey_Swim     = "Skill_Swimming_Run";
     inline constexpr const char* kSkillKey_Glide    = "Skill_CrowWing";
     inline constexpr const char* kSkillKey_Horse    = "Skill_HorseStamina";
+    // The control. The extracted table says this row carries no Stamina cost,
+    // so anything the walk finds on it is something every skill shares and not
+    // the cost list.
+    inline constexpr const char* kSkillKey_Control  = "Skill_Looting";
 }

@@ -70,6 +70,13 @@ namespace us::tables
     // How many rows hold `value` anywhere in the copied bytes.
     uint32_t RowsContainingU32(const std::vector<Rec>& recs, uint32_t value);
 
+    // Bytes between one row's def and the next, taken as the commonest gap over
+    // the first `sample` rows, or 0 when there is no clear one. A def is a
+    // fixed-size C++ object however long the packed file record was, and these
+    // are pool-allocated back to back, which is why a copy wider than the
+    // object reads straight into the next one.
+    unsigned RecordStride(const Table& t, uint32_t sample = 64);
+
     // Guarded writes. The def array is heap data and should already be
     // writable; VirtualProtect is here because "should" is not a thing to find
     // out by faulting on the game's own thread.
