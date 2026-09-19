@@ -158,14 +158,24 @@ namespace us::stamina
         tables::Copy(skill, recs);
         LOG("[table] copied %zu of %u skill records", recs.size(), skill.rows);
 
+        // A record is copied at a fixed size and the real ones run from about
+        // 200 to 1,550 bytes, so a copy reaches past the short ones into
+        // whatever the heap put next. An over-count is therefore the expected
+        // answer and not a fault; an under-count is the one to worry about,
+        // because nothing about a short read can hide a key that is there.
         const uint32_t withStamina = tables::RowsContainingU32(recs, kStatusKey_Stamina);
         if (withStamina == kSkillRowsWithStamina)
             LOG_OK("[skill] %u rows carry the Stamina status key, exactly what the extracted table says. "
                    "The record layout is the one the research was written against.", withStamina);
+        else if (withStamina > kSkillRowsWithStamina)
+            LOG("[skill] %u rows carry the Stamina status key against the extracted table's %u. Each record "
+                "is copied at a fixed %u bytes and the real ones are shorter than that, so the extra rows "
+                "are reads that ran into the next record. Use the offsets below, not this count.",
+                withStamina, kSkillRowsWithStamina, kDefScanBytes);
         else
-            LOG_ERR("[skill] %u rows carry the Stamina status key and the extracted table says %u. Either "
-                    "the records are being read short or the layout moved. Nothing is written on this.",
-                    withStamina, kSkillRowsWithStamina);
+            LOG_ERR("[skill] only %u rows carry the Stamina status key and the extracted table says %u. A "
+                    "short copy cannot hide a key that is there, so the layout has moved or this is not the "
+                    "skill table. Nothing is written on this.", withStamina, kSkillRowsWithStamina);
 
         // Where inside a record the cost sits. A list field is a pointer and a
         // count rather than an inline value, so the key may well be out of
