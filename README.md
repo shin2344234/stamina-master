@@ -32,8 +32,11 @@ Each is a percentage of the game's own cost, so 100 leaves that kind alone and
 0 removes its cost outright. A value outside 0 to 100 refuses the whole write,
 including whichever settings were in range.
 
-Skills that give stamina back, 50 of the 256 entries, are never touched. Food
-and rest restore what they always did.
+Of the 256 entries that name Stamina, 206 are costs and get scaled, 26 are
+already zero, and 24 give stamina back. Twelve of those give-backs are a
+horse's gait and `MountRegenPercent` raises them. The other twelve are your own
+recovery while standing, walking, guarding or hanging on a ledge, and nothing
+here touches them.
 
 ## Why those three kinds and not movement against combat
 
