@@ -67,6 +67,37 @@ namespace us::sig
     inline constexpr const char* kStatusName_Stamina        = "Stamina";
     inline constexpr const char* kStatusName_StaminaUseDown = "Stamina_UseResourceDecreaseRate";
 
+    // --- Record layouts, in memory -----------------------------------------
+    // Recovered with private/research/dump_record_layout.py, which reads them
+    // off the loader: every field read is a `lea rdx,[rsi+off]` and a `mov
+    // r8d,size` in front of a call, with the field's own failure message right
+    // after the branch. **These are runtime offsets into the def object and
+    // have nothing to do with where a field sits in the packed file record.**
+    //
+    // Checked against the running game: statusinfo +0x54 holds hashlittle over
+    // the lowercase status name, and the two rows below read 0xC08A2354 and
+    // 0x0CC20117, which is what hashing those names offline gives.
+    inline constexpr unsigned kRec_StatusBytes = 0xE0;   // measured def spacing
+    inline constexpr unsigned kRec_SkillBytes  = 0x140;
+
+    inline constexpr unsigned kOff_Status_Index      = 0x14; // u32, and it is the row index
+    inline constexpr unsigned kOff_Status_KeyHash    = 0x54; // u32 hashlittle(lowercase name)
+    inline constexpr unsigned kOff_Status_UsePercent = 0x61; // u8
+
+    inline constexpr uint32_t kHash_Stamina        = 0xC08A2354u;
+    inline constexpr uint32_t kHash_StaminaUseDown = 0x0CC20117u;
+
+    inline constexpr unsigned kOff_Skill_UseResourceStatList       = 0xA8;
+    inline constexpr unsigned kOff_Skill_UseDriverResourceStatList = 0xC8;
+
+    // A UseResourceStat. _statusInfo is a StaticInfoWrapper<...,ushort>, so it
+    // names its status by the u16 row index and not by the key. That is why the
+    // first pointer walk found nothing: it hunted the u32 key 1000026 and the
+    // def address, and the record holds neither.
+    inline constexpr unsigned kOff_URS_StatusInfo     = 0x02; // u16 row index
+    inline constexpr unsigned kOff_URS_IsRegen        = 0x04; // u8
+    inline constexpr unsigned kOff_URS_VaryStatAmount = 0x08; // 8 bytes, the cost
+
     // How many of the 2,069 skill rows carry kStatusKey_Stamina somewhere in
     // the record, counted over the extracted table. The probe reports the
     // runtime count against this; a mismatch means the record layout moved and
