@@ -33,6 +33,19 @@ namespace us::stamina
         int oneOff     = 100;
         int continuous = 100;
         int mount      = 100;
+
+        // Mounted skills work the other way round and nothing above reaches
+        // them. A horse's gait is a regen entry whose rate falls as it speeds
+        // up: +100000 standing, +40000 at a canter, +9000 at a full gallop.
+        // Its stamina falls at speed because something drains faster than
+        // 9000 a tick, and zeroing the one negative mounted cost,
+        // Skill_HorseStamina at -10000, did not stop it. Raising the regen
+        // does not need to know where the rest of the drain comes from.
+        //
+        // A percentage of the game's own rate, 100 to 10000. 100 leaves it
+        // alone. This is the only setting that multiplies a positive amount,
+        // and it only touches mounted skills.
+        int mountRegen = 100;
     };
 
     // Returns how many entries were rewritten, 0 when the tables are not

@@ -97,9 +97,18 @@ namespace us::stamina
                         "this mod knows the game survives.", s.name, s.v);
                 return -1;
             }
-        if (scale.oneOff == 100 && scale.continuous == 100 && scale.mount == 100)
+        if (scale.mountRegen < 100 || scale.mountRegen > 10000)
         {
-            LOG("[stamina] every setting is 100, so the game's own costs stand and nothing is written.");
+            LOG_ERR("[stamina] MountRegenPercent is %d, which is outside 100 to 10000. Nothing is "
+                    "written. Below 100 it would make a horse tire faster, which is not what this mod "
+                    "is for.", scale.mountRegen);
+            return -1;
+        }
+        if (scale.oneOff == 100 && scale.continuous == 100 && scale.mount == 100 &&
+            scale.mountRegen == 100)
+        {
+            LOG("[stamina] every setting is 100, so the game's own numbers stand and nothing is "
+                "written.");
             return 0;
         }
 
@@ -115,8 +124,8 @@ namespace us::stamina
         }
 
         int changed = 0, skippedPositive = 0, failed = 0, shown = 0;
-        int byKind[3] = {};            // one-off, continuous, mount
-        static const char* kKind[3] = { "one-off", "continuous", "mount" };
+        int byKind[4] = {};            // one-off, continuous, mount, mount regen
+        static const char* kKind[4] = { "one-off", "continuous", "mount", "mount regen" };
         for (uint32_t r = 0; r < skill.rows; ++r)
         {
             const uintptr_t rec = tables::Def(skill, r);
@@ -139,18 +148,30 @@ namespace us::stamina
                     mem::Read8(e + kOff_URS_IsRegen, &regen);
 
                     const int64_t before = static_cast<int64_t>(raw);
-                    // Spending is negative. A positive amount is a skill that
-                    // gives stamina back, and scaling that would quietly nerf
-                    // every recovery in the game.
-                    if (before >= 0) { ++skippedPositive; continue; }
 
-                    // Mount wins over continuous: a mounted skill is a mounted
-                    // skill whether it is held or tapped, and someone setting
-                    // MountPercent means the horse.
-                    const int kind = (applyType == 1) ? 2 : (regen ? 1 : 0);
-                    const int percent = (kind == 2) ? scale.mount
-                                      : (kind == 1) ? scale.continuous
-                                                    : scale.oneOff;
+                    // Spending is negative. A positive amount gives stamina
+                    // back, and the only one of those this mod touches is a
+                    // mounted regen rate, because that is what decides whether
+                    // a horse tires. Every other give-back is left alone, so
+                    // food and rest restore what they did.
+                    int kind, percent;
+                    if (before > 0)
+                    {
+                        if (applyType != 1 || scale.mountRegen == 100) { ++skippedPositive; continue; }
+                        kind = 3;
+                        percent = scale.mountRegen;
+                    }
+                    else if (before == 0) continue;
+                    else
+                    {
+                        // Mount wins over continuous: a mounted skill is a
+                        // mounted skill whether it is held or tapped, and
+                        // someone setting MountPercent means the horse.
+                        kind = (applyType == 1) ? 2 : (regen ? 1 : 0);
+                        percent = (kind == 2) ? scale.mount
+                                : (kind == 1) ? scale.continuous
+                                              : scale.oneOff;
+                    }
                     if (percent == 100) continue;
 
                     const int64_t after = before * percent / 100;
@@ -180,9 +201,10 @@ namespace us::stamina
                     "session or every write was refused; %d write(s) failed.", failed);
             return -1;
         }
-        LOG_OK("[stamina] %d stamina cost%s rewritten: %d one-off at %d%%, %d continuous at %d%%, "
-               "%d mounted at %d%%.%s", changed, changed == 1 ? "" : "s",
+        LOG_OK("[stamina] %d number%s rewritten: %d one-off at %d%%, %d continuous at %d%%, "
+               "%d mounted at %d%%, %d mounted regen at %d%%.%s", changed, changed == 1 ? "" : "s",
                byKind[0], scale.oneOff, byKind[1], scale.continuous, byKind[2], scale.mount,
+               byKind[3], scale.mountRegen,
                failed ? " Some writes were refused; see above." : "");
         if (skippedPositive)
             LOG("[stamina] %d entr%s carried a positive amount and %s left alone. Those give stamina "
@@ -201,7 +223,7 @@ namespace us::stamina
         if (!StaminaIndex(status, want)) return;
 
         for (const char* key : { kSkillKey_Sprint, kSkillKey_Climb, kSkillKey_Swim,
-                                 kSkillKey_Glide, kSkillKey_Horse })
+                                 kSkillKey_Glide, kSkillKey_Horse, kSkillKey_Gallop })
         {
             const int row = tables::RowByKey(skill, key);
             if (row < 0) continue;

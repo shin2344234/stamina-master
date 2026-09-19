@@ -63,9 +63,10 @@ namespace
     Settings ReadSettings()
     {
         Settings s;
-        s.scale.oneOff     = static_cast<int>(ReadSetting(L"UsePercent", L"25"));
-        s.scale.continuous = static_cast<int>(ReadSetting(L"ContinuousPercent", L"10"));
-        s.scale.mount      = static_cast<int>(ReadSetting(L"MountPercent", L"25"));
+        s.scale.oneOff     = static_cast<int>(ReadSetting(L"UsePercent", L"0"));
+        s.scale.continuous = static_cast<int>(ReadSetting(L"ContinuousPercent", L"0"));
+        s.scale.mount      = static_cast<int>(ReadSetting(L"MountPercent", L"0"));
+        s.scale.mountRegen = static_cast<int>(ReadSetting(L"MountRegenPercent", L"1000"));
         s.probe            = ReadSetting(L"Probe", L"0") != 0.0f;
         return s;
     }
@@ -76,8 +77,8 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.03.00 (exe 1.0.0.2944). UsePercent=%d ContinuousPercent=%d "
-            "MountPercent=%d Probe=%d", US_NAME, US_VERSION, s.scale.oneOff, s.scale.continuous,
-            s.scale.mount, s.probe ? 1 : 0);
+            "MountPercent=%d MountRegenPercent=%d Probe=%d", US_NAME, US_VERSION, s.scale.oneOff,
+            s.scale.continuous, s.scale.mount, s.scale.mountRegen, s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(us::mem::Game().base), us::mem::Game().size);
 
@@ -101,7 +102,7 @@ namespace
                 // 0 means the tables are not loaded yet and the call is worth
                 // repeating, unless there was nothing to do in the first place.
                 const bool nothingToDo = s.scale.oneOff == 100 && s.scale.continuous == 100 &&
-                                         s.scale.mount == 100;
+                                         s.scale.mount == 100 && s.scale.mountRegen == 100;
                 const int n = us::stamina::Apply(s.scale, s.probe);
                 applied = n != 0 || nothingToDo;
             }
