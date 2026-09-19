@@ -18,10 +18,10 @@ namespace
     std::atomic<bool> g_stop{false};
     HANDLE g_thread = nullptr;
 
-    // UnlimitedStamina.ini next to the plugin, [settings] section.
+    // StaminaMaster.ini next to the plugin, [settings] section.
     float ReadSetting(const wchar_t* key, const wchar_t* fallback)
     {
-        const std::wstring ini = us::Paths::File(US_INI);
+        const std::wstring ini = sm::Paths::File(SM_INI);
         wchar_t buf[64] = {};
         GetPrivateProfileStringW(L"settings", key, fallback, buf, 64, ini.c_str());
         return static_cast<float>(_wtof(buf));
@@ -35,7 +35,7 @@ namespace
     // old or however empty.
     void WriteDefaultIni()
     {
-        const std::wstring path = us::Paths::File(US_INI);
+        const std::wstring path = sm::Paths::File(SM_INI);
         if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) return;
 
         FILE* f = nullptr;
@@ -43,7 +43,7 @@ namespace
         if (e != 0 || !f)
         {
             LOG("[ini] %ls is not there and could not be written (errno %d). Every default is compiled "
-                "in, so the mod still runs; there is just no file to change one in.", US_INI, e);
+                "in, so the mod still runs; there is just no file to change one in.", SM_INI, e);
             return;
         }
         const bool ok = fwrite(kDefaultIni, 1, kDefaultIniSize, f) == kDefaultIniSize;
@@ -51,12 +51,12 @@ namespace
         LOG(ok ? "[ini] no %ls beside the plugin, so one was written with every setting at its default "
                  "and a note on each. Edit it and restart the game."
                : "[ini] %ls was created but not written in full. Delete it and it will be written again.",
-            US_INI);
+            SM_INI);
     }
 
     struct Settings
     {
-        us::stamina::Scale scale;
+        sm::stamina::Scale scale;
         bool probe;       // the research report, and a line per skill changed
     };
 
@@ -77,10 +77,10 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.03.00 (exe 1.0.0.2944). UsePercent=%d ContinuousPercent=%d "
-            "MountPercent=%d MountRegenPercent=%d Probe=%d", US_NAME, US_VERSION, s.scale.oneOff,
+            "MountPercent=%d MountRegenPercent=%d Probe=%d", SM_NAME, SM_VERSION, s.scale.oneOff,
             s.scale.continuous, s.scale.mount, s.scale.mountRegen, s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
-            reinterpret_cast<void*>(us::mem::Game().base), us::mem::Game().size);
+            reinterpret_cast<void*>(sm::mem::Game().base), sm::mem::Game().size);
 
         // The tables are empty for the first seconds of a session, so both jobs
         // are asked on every pass until they answer. Two minutes is generous
@@ -94,8 +94,8 @@ namespace
             // rather than the scaled ones.
             if (!probed)
             {
-                probed = us::stamina::Probe();
-                if (probed) us::stamina::SurveyCategories();
+                probed = sm::stamina::Probe();
+                if (probed) sm::stamina::SurveyCategories();
             }
             if (!applied)
             {
@@ -103,7 +103,7 @@ namespace
                 // repeating, unless there was nothing to do in the first place.
                 const bool nothingToDo = s.scale.oneOff == 100 && s.scale.continuous == 100 &&
                                          s.scale.mount == 100 && s.scale.mountRegen == 100;
-                const int n = us::stamina::Apply(s.scale, s.probe);
+                const int n = sm::stamina::Apply(s.scale, s.probe);
                 applied = n != 0 || nothingToDo;
             }
             if (!(probed && applied) && ++waited == 120)
@@ -131,14 +131,14 @@ namespace
             char when[32];
             _snprintf_s(when, _countof(when), _TRUNCATE, "after %d minute%s", minute,
                         minute == 1 ? "" : "s");
-            us::stamina::Verify(when);
+            sm::stamina::Verify(when);
         }
         LOG("[mod] worker stopped");
         return 0;
     }
 }
 
-namespace us::Mod
+namespace sm::Mod
 {
     // The game is not the only process that loads this plugin.
     // crashpad_handler.exe does too, with a 671,744-byte image on this build,
@@ -156,7 +156,7 @@ namespace us::Mod
             // starts and exits repeatedly, and naming the file after the pid
             // leaves a new one behind every time with nothing to clear them.
             wchar_t name[96];
-            _snwprintf_s(name, _countof(name), _TRUNCATE, L"%s.other", US_FILEBASE);
+            _snwprintf_s(name, _countof(name), _TRUNCATE, L"%s.other", SM_FILEBASE);
             Log::ClaimSingle(name);
 
             wchar_t exe[MAX_PATH] = {};
@@ -164,11 +164,11 @@ namespace us::Mod
             const wchar_t* leaf = wcsrchr(exe, L'\\');
             LOG("[mod] %ls (pid %lu) has a %zu byte image, which is not the game, so nothing is changed "
                 "here. The game's own log is %ls.log.", leaf ? leaf + 1 : exe,
-                GetCurrentProcessId(), size, US_FILEBASE);
+                GetCurrentProcessId(), size, SM_FILEBASE);
             Log::Shutdown();
             return;
         }
-        Log::Claim(US_FILEBASE);
+        Log::Claim(SM_FILEBASE);
         g_thread = CreateThread(nullptr, 0, Worker, nullptr, 0, nullptr);
     }
 

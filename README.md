@@ -1,4 +1,4 @@
-# Unlimited Stamina
+# Stamina Master
 
 A stamina plugin for Crimson Desert 2.03.00 (exe 1.0.0.2944).
 
@@ -80,8 +80,8 @@ the machinery the game's own equipment socket and Abyss passive already use.
     mod\build.bat
 
 From PowerShell, by full quoted path. It needs MSVC Build Tools 2022 and uses
-the CMake and Ninja they bundle. Output is `mod\dist\UnlimitedStamina.asi` with
-`UnlimitedStamina.ini` beside it.
+the CMake and Ninja they bundle. Output is `mod\dist\StaminaMaster.asi` with
+`StaminaMaster.ini` beside it.
 
 ## Installing
 
@@ -90,8 +90,8 @@ game closed. An ASI loader has to be there already; on a DMM install that is
 `winmm.dll`. The settings are read once at startup, so a change to the ini
 needs the game restarted.
 
-`bin64\UnlimitedStamina.log` says what it did, and the sessions before it are
-`UnlimitedStamina.01.log` upwards.
+`bin64\StaminaMaster.log` says what it did, and the sessions before it are
+`StaminaMaster.01.log` upwards.
 
 ## Licence
 

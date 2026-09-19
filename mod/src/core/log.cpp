@@ -8,7 +8,7 @@
 
 #include "core/paths.h"
 
-namespace us::Log
+namespace sm::Log
 {
     static std::mutex               g_mu;
     static std::deque<std::string>  g_recent;   // for the Status tab

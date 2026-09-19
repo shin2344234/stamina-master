@@ -2,15 +2,15 @@
 #include <string>
 #include <vector>
 
-namespace us::Log
+namespace sm::Log
 {
     // printf-style. Lines are buffered until Claim(); after that they go to
     // <base>.log next to the plugin. A copy of recent lines is always kept in
     // memory either way.
     void Write(const char* level, const char* fmt, ...);
 
-    // `base` names the file and its archives: "UnlimitedStamina" gives
-    // UnlimitedStamina.log and UnlimitedStamina.01.log upwards.
+    // `base` names the file and its archives: "StaminaMaster" gives
+    // StaminaMaster.log and StaminaMaster.01.log upwards.
     //
     // It is a parameter because two processes load this plugin. Session one
     // put both of them in one file: lines from each landed at the other's file
@@ -33,6 +33,6 @@ namespace us::Log
     void Snapshot(std::vector<std::string>& out, int maxLines);
 }
 
-#define LOG(...)     ::us::Log::Write("info ", __VA_ARGS__)
-#define LOG_OK(...)  ::us::Log::Write("ok   ", __VA_ARGS__)
-#define LOG_ERR(...) ::us::Log::Write("error", __VA_ARGS__)
+#define LOG(...)     ::sm::Log::Write("info ", __VA_ARGS__)
+#define LOG_OK(...)  ::sm::Log::Write("ok   ", __VA_ARGS__)
+#define LOG_ERR(...) ::sm::Log::Write("error", __VA_ARGS__)

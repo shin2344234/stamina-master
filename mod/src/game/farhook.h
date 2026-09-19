@@ -8,7 +8,7 @@
 // with MinHook's HDE decoder, rejected if any is rip-relative), put them in a
 // trampoline anywhere in memory, and patch `mov rax, detour; jmp rax` over the
 // entry. Other threads are suspended around the write.
-namespace us::farhook
+namespace sm::farhook
 {
     // Installs a detour. *original receives the trampoline (callable as the
     // original function). Returns false and fills `why` on failure.

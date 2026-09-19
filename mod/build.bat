@@ -1,5 +1,5 @@
 @echo off
-rem Unlimited Stamina build: MSVC Build Tools 2022 + the CMake and Ninja they bundle.
+rem Stamina Master build: MSVC Build Tools 2022 + the CMake and Ninja they bundle.
 rem   build.bat          configure (first run) and build Release into build\, stage dist\
 rem   build.bat clean    wipe build\ first
 rem Call it by full quoted path from PowerShell; the space in the repo path

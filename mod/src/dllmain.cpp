@@ -5,7 +5,7 @@ static HMODULE g_module = nullptr;
 
 static DWORD WINAPI MainThread(LPVOID)
 {
-    us::Mod::Initialize(g_module);
+    sm::Mod::Initialize(g_module);
     return 0;
 }
 
@@ -21,7 +21,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved)
         break;
     case DLL_PROCESS_DETACH:
         // reserved is non-null when the process is terminating.
-        us::Mod::Shutdown(reserved != nullptr);
+        sm::Mod::Shutdown(reserved != nullptr);
         break;
     }
     return TRUE;

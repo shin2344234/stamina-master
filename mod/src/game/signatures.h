@@ -5,7 +5,7 @@
 // (exe 1.0.0.2944). The table machinery is Flight Freedom's, which took it from
 // Master Looter. Everything about stamina came out of the research in
 // private/FEASIBILITY.md.
-namespace us::sig
+namespace sm::sig
 {
     // --- Static data tables -------------------------------------------------
     // Most table resolvers are clones of one template, told apart by the

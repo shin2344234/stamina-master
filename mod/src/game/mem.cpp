@@ -3,7 +3,7 @@
 #include <cstring>
 #include <vector>
 
-namespace us::mem
+namespace sm::mem
 {
     // ------------------------------------------------------------ module ----
     const Module& Game()

@@ -8,8 +8,8 @@
 #include "game/signatures.h"
 #include "game/tables.h"
 
-using namespace us::sig;
-using us::tables::Table;
+using namespace sm::sig;
+using sm::tables::Table;
 
 namespace
 {
@@ -18,8 +18,8 @@ namespace
 
     bool Open(const char* name, const char* rtti, Slot& s, Table& out)
     {
-        if (name && us::tables::Resolve(name, s.byName)) { out = s.byName; return true; }
-        if (rtti && us::tables::ResolveByManager(rtti, s.byRtti)) { out = s.byRtti; return true; }
+        if (name && sm::tables::Resolve(name, s.byName)) { out = s.byName; return true; }
+        if (rtti && sm::tables::ResolveByManager(rtti, s.byRtti)) { out = s.byRtti; return true; }
         return false;
     }
 
@@ -41,13 +41,13 @@ namespace
     {
         out = List{};
         uint64_t p = 0;
-        if (!us::mem::Read64(rec + off + kOff_List_Items, &p)) return false;
-        if (!us::mem::Read32(rec + off + kOff_List_Size, &out.size)) return false;
-        if (!us::mem::Read32(rec + off + kOff_List_Cap, &out.cap)) return false;
+        if (!sm::mem::Read64(rec + off + kOff_List_Items, &p)) return false;
+        if (!sm::mem::Read32(rec + off + kOff_List_Size, &out.size)) return false;
+        if (!sm::mem::Read32(rec + off + kOff_List_Cap, &out.cap)) return false;
         if (!out.size) return true;                       // empty is a real answer
         if (out.size > 64 || out.cap < out.size) return false;
-        if (!us::mem::Plausible(static_cast<uintptr_t>(p)) ||
-            !us::mem::Readable(static_cast<uintptr_t>(p), 1ull * out.size * kRec_UseResourceStatBytes))
+        if (!sm::mem::Plausible(static_cast<uintptr_t>(p)) ||
+            !sm::mem::Readable(static_cast<uintptr_t>(p), 1ull * out.size * kRec_UseResourceStatBytes))
             return false;
         out.items = static_cast<uintptr_t>(p);
         return true;
@@ -67,10 +67,10 @@ namespace
         for (uint32_t r = 0; r < status.rows; ++r)
         {
             uint32_t h = 0;
-            const uintptr_t def = us::tables::Def(status, r);
-            if (!def || !us::mem::Read32(def + kOff_Status_KeyHash, &h) || h != kHash_Stamina) continue;
+            const uintptr_t def = sm::tables::Def(status, r);
+            if (!def || !sm::mem::Read32(def + kOff_Status_KeyHash, &h) || h != kHash_Stamina) continue;
             uint32_t idx = 0;
-            if (!us::mem::Read32(def + kOff_Status_Index, &idx) || idx > 0xFFFF) return false;
+            if (!sm::mem::Read32(def + kOff_Status_Index, &idx) || idx > 0xFFFF) return false;
             out = static_cast<uint16_t>(idx);
             return true;
         }
@@ -80,7 +80,7 @@ namespace
     const unsigned kLists[2] = { kOff_Skill_UseResourceStatList, kOff_Skill_UseDriverResourceStatList };
 }
 
-namespace us::stamina
+namespace sm::stamina
 {
     int Apply(const Scale& scale, bool verbose)
     {

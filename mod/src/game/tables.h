@@ -14,7 +14,7 @@
 // lives behind an accessor stub, so nothing in the image passes "skill" to the
 // template and Resolve will never find it. Every table does have a manager
 // class with RTTI, and mem's vtable walk finds the global holding it.
-namespace us::tables
+namespace sm::tables
 {
     struct Table
     {

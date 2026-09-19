@@ -1,7 +1,7 @@
 #pragma once
 #include <Windows.h>
 
-namespace us::Mod
+namespace sm::Mod
 {
     void Initialize(HMODULE module);
     void Shutdown(bool processExiting);

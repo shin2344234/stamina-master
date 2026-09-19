@@ -7,7 +7,7 @@
 #include "game/mem.h"
 #include "game/signatures.h"
 
-using namespace us::sig;
+using namespace sm::sig;
 
 namespace
 {
@@ -18,26 +18,26 @@ namespace
     bool TableVisit(uintptr_t hit, void* ctx)
     {
         auto* h = static_cast<TableHunt*>(ctx);
-        const uintptr_t str = us::mem::RipAt(hit, 7);
+        const uintptr_t str = sm::mem::RipAt(hit, 7);
         char buf[48];
-        if (!us::mem::ReadCString(str, buf, sizeof buf) || strcmp(buf, h->name) != 0) return false;
-        for (uintptr_t p = hit; p + kMax_LeaToPrologue > hit && p > us::mem::Game().base; --p)
-            if (us::mem::MatchAt(p, kSig_TableResolver16)) { h->fn = p; return true; }
+        if (!sm::mem::ReadCString(str, buf, sizeof buf) || strcmp(buf, h->name) != 0) return false;
+        for (uintptr_t p = hit; p + kMax_LeaToPrologue > hit && p > sm::mem::Game().base; --p)
+            if (sm::mem::MatchAt(p, kSig_TableResolver16)) { h->fn = p; return true; }
         return false;
     }
 
     uintptr_t GlobalFor(const char* name)
     {
         TableHunt h{ name, 0 };
-        us::mem::FindIf(kSig_LeaR8Rip, TableVisit, &h);
+        sm::mem::FindIf(kSig_LeaR8Rip, TableVisit, &h);
         if (!h.fn) return 0;
-        const uintptr_t g = us::mem::RipAt(h.fn + kOff_TableResolver_MovGlobal, 7);
-        return us::mem::InImage(g) ? g : 0;
+        const uintptr_t g = sm::mem::RipAt(h.fn + kOff_TableResolver_MovGlobal, 7);
+        return sm::mem::InImage(g) ? g : 0;
     }
 
     // A def offset is only usable if it yields string keys. Try both known
     // positions of the def array and keep the one that reads.
-    bool PickDefsOffset(us::tables::Table& t)
+    bool PickDefsOffset(sm::tables::Table& t)
     {
         const unsigned tryOffs[2] = { kOff_Table_DefsA, kOff_Table_DefsB };
         for (unsigned o : tryOffs)
@@ -46,9 +46,9 @@ namespace
             int good = 0;
             for (uint32_t r = 0; r < t.rows && r < 8; ++r)
             {
-                const uintptr_t def = us::tables::Def(t, r);
+                const uintptr_t def = sm::tables::Def(t, r);
                 char key[64];
-                if (def && us::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
+                if (def && sm::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
                     ++good;
             }
             if (good >= 2) return true;
@@ -58,16 +58,16 @@ namespace
     }
 
     // Row count and def array, given the table object. Shared by both routes.
-    bool Finish(us::tables::Table& out)
+    bool Finish(sm::tables::Table& out)
     {
         if (!out.object) return false;
-        if (!us::mem::Read32(out.object + kOff_Table_Count, &out.rows) || !out.rows || out.rows > 0x40000)
+        if (!sm::mem::Read32(out.object + kOff_Table_Count, &out.rows) || !out.rows || out.rows > 0x40000)
             return false;
         return PickDefsOffset(out);
     }
 }
 
-namespace us::tables
+namespace sm::tables
 {
     bool Resolve(const char* name, Table& out)
     {

@@ -8,7 +8,7 @@
 // Stamina status by its row index and carrying an int64 _varyStatAmount that
 // is negative because spending is a negative change. Scaling that number is
 // the whole mod. private/FEASIBILITY.md has how it was found.
-namespace us::stamina
+namespace sm::stamina
 {
     // What to keep of each kind of cost, as a percentage. 100 leaves a kind
     // alone and 0 removes its cost outright.

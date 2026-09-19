@@ -7,7 +7,7 @@
 // and the MSVC RTTI walk. Everything that touches game memory in the loot
 // engine goes through here so a stale pointer costs a skipped object, never a
 // crash. Locals in the SEH functions stay POD.
-namespace us::mem
+namespace sm::mem
 {
     struct Module { uintptr_t base = 0; size_t size = 0; };
     const Module& Game();                       // main executable, resolved once

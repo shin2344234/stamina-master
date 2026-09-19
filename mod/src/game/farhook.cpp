@@ -11,7 +11,7 @@ extern "C" {
 #include <hde64.h>
 }
 
-namespace us::farhook
+namespace sm::farhook
 {
     struct Entry { uintptr_t target; unsigned stolen; unsigned char orig[32]; };
     static Entry g_entries[96];
@@ -40,7 +40,7 @@ namespace us::farhook
         // Data can decode as instructions. Refusing a target that is not in
         // executable memory is the check that would have stopped session
         // five patching a jump over an RTTI locator in .arch.
-        if (!us::mem::Executable(target, 16))
+        if (!sm::mem::Executable(target, 16))
         {
             snprintf(why, whyLen, "target is not in executable memory");
             return 0;
