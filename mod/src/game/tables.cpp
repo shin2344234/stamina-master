@@ -249,6 +249,17 @@ namespace us::tables
         return true;
     }
 
+    bool WriteI64(uintptr_t at, int64_t v)
+    {
+        DWORD old = 0;
+        if (!VirtualProtect(reinterpret_cast<LPVOID>(at), sizeof v, PAGE_READWRITE, &old)) return false;
+        __try { *reinterpret_cast<int64_t*>(at) = v; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { VirtualProtect(reinterpret_cast<LPVOID>(at), sizeof v, old, &old); return false; }
+        DWORD tmp = 0;
+        VirtualProtect(reinterpret_cast<LPVOID>(at), sizeof v, old, &tmp);
+        return true;
+    }
+
     bool WriteU32(uintptr_t at, uint32_t v)
     {
         DWORD old = 0;

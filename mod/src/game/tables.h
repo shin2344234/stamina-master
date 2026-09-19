@@ -82,4 +82,5 @@ namespace us::tables
     // out by faulting on the game's own thread.
     bool WriteF32(uintptr_t at, float v);
     bool WriteU32(uintptr_t at, uint32_t v);
+    bool WriteI64(uintptr_t at, int64_t v);
 }

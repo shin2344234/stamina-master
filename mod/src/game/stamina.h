@@ -1,16 +1,24 @@
 #pragma once
 #include <cstdint>
 
-// Stamina work, and for this build the probe that has to come before it.
+// Scaling the stamina cost of everything the player does.
 //
-// Nothing in here writes to the game yet. The feasibility pass found two ways
-// to build the mod and could not choose between them from the files alone, so
-// this reports what the running game actually holds and the choice is made off
-// the log. See private/FEASIBILITY.md.
+// The costs are UseResourceStat entries in the skill table's
+// _useResourceStatList, one per skill that spends stamina, each naming the
+// Stamina status by its row index and carrying an int64 _varyStatAmount that
+// is negative because spending is a negative change. Scaling that number is
+// the whole mod. private/FEASIBILITY.md has how it was found.
 namespace us::stamina
 {
-    // Run the whole report once. Returns true when it has run; call again each
-    // second until it does, because the tables are not populated at load time.
-    // Reports what it could not do rather than falling silent.
+    // Multiply every stamina cost by `percent`/100. 100 changes nothing and is
+    // refused as a no-op; 0 removes the cost outright.
+    //
+    // Returns how many entries were rewritten, 0 when the tables are not
+    // loaded yet (worth calling again), or -1 when something was wrong enough
+    // that nothing was written. Only negative amounts are touched, so a skill
+    // that restores stamina keeps restoring the same amount.
+    int Apply(int percent, bool verbose);
+
+    // The research report. Independent of Apply and off by default.
     bool Probe();
 }

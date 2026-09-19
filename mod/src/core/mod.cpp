@@ -56,13 +56,15 @@ namespace
 
     struct Settings
     {
-        bool probe;   // the research report; the only thing this build does
+        int  usePercent;  // percent of the game's own stamina cost to keep
+        bool probe;       // the research report, and a line per skill changed
     };
 
     Settings ReadSettings()
     {
         Settings s;
-        s.probe = ReadSetting(L"Probe", L"1") != 0.0f;
+        s.usePercent = static_cast<int>(ReadSetting(L"UsePercent", L"25"));
+        s.probe      = ReadSetting(L"Probe", L"0") != 0.0f;
         return s;
     }
 
@@ -71,32 +73,35 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.03.00 (exe 1.0.0.2944). Probe=%d", US_NAME, US_VERSION,
-            s.probe ? 1 : 0);
-        LOG("[mod] This build changes nothing in the game. It reports what the running tables hold so the "
-            "two designs in FEASIBILITY.md can be told apart. Play for a minute or two with a mount, a "
-            "climb and a swim, then send the log.");
+        LOG("[mod] %s %s for Crimson Desert 2.03.00 (exe 1.0.0.2944). UsePercent=%d Probe=%d", US_NAME,
+            US_VERSION, s.usePercent, s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(us::mem::Game().base), us::mem::Game().size);
 
-        if (!s.probe)
-        {
-            LOG("[mod] Probe is 0 and this build has nothing else to do, so it is stopping here.");
-            return 0;
-        }
-
+        // The tables are empty for the first seconds of a session, so both jobs
+        // are asked on every pass until they answer. Two minutes is generous
+        // for a load; past that something has changed and saying so beats
+        // polling in silence for the rest of the session.
         int waited = 0;
-        bool reported = false;
+        bool probed = !s.probe, applied = false;
         while (!g_stop.load())
         {
-            if (!reported)
+            if (!probed) probed = us::stamina::Probe();
+            if (!applied)
             {
-                reported = us::stamina::Probe();
-                if (!reported && ++waited == 120)
-                    LOG_ERR("[table] neither statusinfo nor skill was loaded after two minutes. The probe "
-                            "keeps trying. If this line is the last one in the log, the table machinery "
-                            "has changed on this build and no part of the report ran.");
+                const int n = us::stamina::Apply(s.usePercent, s.probe);
+                applied = n != 0;
+                if (n == 0 && s.usePercent == 100) applied = true;
             }
+            if (!(probed && applied) && ++waited == 120)
+            {
+                LOG_ERR("[mod] statusinfo and skill were still not both loaded after two minutes, so no "
+                        "stamina cost has been changed this session. The table machinery has changed on "
+                        "this build.");
+                probed = applied = true;
+            }
+            if (probed && applied)
+                break;
             for (int i = 0; i < 2 && !g_stop.load(); ++i) Sleep(500);
         }
         LOG("[mod] worker stopped");
