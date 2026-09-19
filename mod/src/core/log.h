@@ -1,0 +1,38 @@
+#pragma once
+#include <string>
+#include <vector>
+
+namespace us::Log
+{
+    // printf-style. Lines are buffered until Claim(); after that they go to
+    // <base>.log next to the plugin. A copy of recent lines is always kept in
+    // memory either way.
+    void Write(const char* level, const char* fmt, ...);
+
+    // `base` names the file and its archives: "UnlimitedStamina" gives
+    // UnlimitedStamina.log and UnlimitedStamina.01.log upwards.
+    //
+    // It is a parameter because two processes load this plugin. Session one
+    // put both of them in one file: lines from each landed at the other's file
+    // offset, one was cut in half and three vanished, and the result read as
+    // three hooks failing when all five had installed. Whoever is not the game
+    // gets its own name and never touches the real log.
+    void Claim(const wchar_t* base);
+
+    // The same, for a log that must not accumulate: no archives, and the file
+    // from last time is replaced. crashpad_handler.exe writes one line saying
+    // it is doing nothing, and a history of that is worth nothing.
+    void ClaimSingle(const wchar_t* base);
+
+    // Deletes <base>.other-<pid>.log, which is what the non-game process was
+    // named up to 1.1.2. Returns how many went. Only the game calls this.
+    int RemovePerProcessLogs(const wchar_t* base);
+
+    bool Claimed();
+    void Shutdown();
+    void Snapshot(std::vector<std::string>& out, int maxLines);
+}
+
+#define LOG(...)     ::us::Log::Write("info ", __VA_ARGS__)
+#define LOG_OK(...)  ::us::Log::Write("ok   ", __VA_ARGS__)
+#define LOG_ERR(...) ::us::Log::Write("error", __VA_ARGS__)
