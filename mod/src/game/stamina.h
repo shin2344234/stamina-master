@@ -49,4 +49,14 @@ namespace us::stamina
     // setting on the strength of a field the game itself keeps, rather than on
     // a keyword rule over the skill key. Runs under Probe=1 only.
     void SurveyCategories();
+
+    // Read the five named movement costs back and say what they hold now.
+    //
+    // Apply already reads each write back at the moment it makes it, which
+    // proves the store landed and nothing more. This runs later, on a timer,
+    // and answers a different question: whether the value is still there once
+    // the player is in the world. If it is, and stamina still drains at 0, the
+    // skill table is not the number the game spends against and the search has
+    // to move to the action charts, which is where the Nexus mod did its work.
+    void Verify(const char* when);
 }

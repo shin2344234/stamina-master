@@ -193,6 +193,36 @@ namespace us::stamina
         return changed;
     }
 
+    void Verify(const char* when)
+    {
+        Table status, skill;
+        if (!OpenBoth(status, skill)) return;
+        uint16_t want = 0;
+        if (!StaminaIndex(status, want)) return;
+
+        for (const char* key : { kSkillKey_Sprint, kSkillKey_Climb, kSkillKey_Swim,
+                                 kSkillKey_Glide, kSkillKey_Horse })
+        {
+            const int row = tables::RowByKey(skill, key);
+            if (row < 0) continue;
+            const uintptr_t rec = tables::Def(skill, static_cast<uint32_t>(row));
+            for (unsigned off : kLists)
+            {
+                List l;
+                if (!ReadList(rec, off, l) || !l.size) continue;
+                for (unsigned i = 0; i < l.size; ++i)
+                {
+                    const uintptr_t e = EntryAt(l, i);
+                    uint16_t idx = 0;
+                    uint64_t raw = 0;
+                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx) || idx != want) continue;
+                    mem::Read64(e + kOff_URS_VaryStatAmount, &raw);
+                    LOG("[verify] %-34s %s: %lld", key, when, static_cast<long long>(raw));
+                }
+            }
+        }
+    }
+
     void SurveyCategories()
     {
         Table status, skill;

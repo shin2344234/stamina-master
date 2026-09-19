@@ -116,6 +116,20 @@ namespace
                 break;
             for (int i = 0; i < 2 && !g_stop.load(); ++i) Sleep(500);
         }
+
+        // Apply reads each write back as it makes it, which says the store
+        // landed and nothing else. These two say whether it is still there once
+        // the player is in the world, which is a different question and the one
+        // that matters when the setting is 0 and stamina still drains.
+        for (int minute = 1; minute <= 2 && !g_stop.load(); ++minute)
+        {
+            for (int i = 0; i < 120 && !g_stop.load(); ++i) Sleep(500);
+            if (g_stop.load()) break;
+            char when[32];
+            _snprintf_s(when, _countof(when), _TRUNCATE, "after %d minute%s", minute,
+                        minute == 1 ? "" : "s");
+            us::stamina::Verify(when);
+        }
         LOG("[mod] worker stopped");
         return 0;
     }
