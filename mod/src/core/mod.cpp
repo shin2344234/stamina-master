@@ -86,7 +86,13 @@ namespace
         bool probed = !s.probe, applied = false;
         while (!g_stop.load())
         {
-            if (!probed) probed = us::stamina::Probe();
+            // Before Apply, so the survey reports the game's own amounts
+            // rather than the scaled ones.
+            if (!probed)
+            {
+                probed = us::stamina::Probe();
+                if (probed) us::stamina::SurveyCategories();
+            }
             if (!applied)
             {
                 const int n = us::stamina::Apply(s.usePercent, s.probe);

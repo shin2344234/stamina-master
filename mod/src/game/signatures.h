@@ -90,6 +90,22 @@ namespace us::sig
     inline constexpr unsigned kOff_Skill_UseResourceStatList       = 0xA8;
     inline constexpr unsigned kOff_Skill_UseDriverResourceStatList = 0xC8;
 
+    // Candidates for telling a movement skill from a combat one. The costs
+    // divide 68 to 138 that way and the split wants to be a setting, but a
+    // keyword rule over the skill key gets the edges wrong in both directions:
+    // Skill_Bow_RollShot, Skill_ShieldDash, Skill_MoveCutting_I and
+    // Skill_Climb_DaggerAttack are attacks with movement words in their names,
+    // and nothing in a name is load-bearing anyway. One of these fields may
+    // separate them properly, which is what the survey is for.
+    inline constexpr unsigned kOff_Skill_Cooltime     = 0x14; // u32
+    inline constexpr unsigned kOff_Skill_ApplyType    = 0x34; // u8
+    inline constexpr unsigned kOff_Skill_IsUiAllowed  = 0xE0; // u8
+    inline constexpr unsigned kOff_Skill_AllowLowRes  = 0xE2; // u8
+    inline constexpr unsigned kOff_Skill_IsNoAlert    = 0xE4; // u8
+    inline constexpr unsigned kOff_Skill_DamageType   = 0xE5; // u8
+    inline constexpr unsigned kOff_Skill_UiType       = 0xE6; // u8
+    inline constexpr unsigned kOff_Skill_MaxLevel     = 0xF8; // u32
+
     // A list field is {items, size, capacity} and **not** {begin, end}. Read
     // off its reader at RVA 0x01527950, which both list fields above call:
     // `add edx, [rbx+8]` takes the size, `mov eax, [rbx+0xC]` the capacity, and

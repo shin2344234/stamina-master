@@ -161,11 +161,67 @@ namespace us::stamina
                skippedPositive ? " Skills that give stamina back were left alone" : "",
                failed ? " Some writes were refused; see above." : "");
         if (skippedPositive)
-            LOG("[stamina] %d entr%s carried a positive amount and was left alone. Those give stamina "
-                "rather than spend it.", skippedPositive, skippedPositive == 1 ? "y" : "ies");
+            LOG("[stamina] %d entr%s carried a positive amount and %s left alone. Those give stamina "
+                "rather than spend it.", skippedPositive, skippedPositive == 1 ? "y" : "ies",
+                skippedPositive == 1 ? "was" : "were");
         if (!verbose)
             LOG("[stamina] Set Probe=1 in the ini for a line per skill changed.");
         return changed;
+    }
+
+    void SurveyCategories()
+    {
+        Table status, skill;
+        if (!OpenBoth(status, skill)) return;
+        uint16_t want = 0;
+        if (!StaminaIndex(status, want)) return;
+
+        LOG("[survey] every skill that spends stamina, with the fields that might separate movement from "
+            "combat. cool is _cooltime, apply _applyType, dmg _damageType, ui _uiType, alert "
+            "_isNoAlert, lowres _allowSkillWithLowResource, maxlv _maxLevel, then the entry's own "
+            "statType and isRegen.");
+        int n = 0;
+        for (uint32_t r = 0; r < skill.rows; ++r)
+        {
+            const uintptr_t rec = tables::Def(skill, r);
+            if (!rec) continue;
+            for (unsigned off : kLists)
+            {
+                List l;
+                if (!ReadList(rec, off, l) || !l.size) continue;
+                for (unsigned i = 0; i < l.size; ++i)
+                {
+                    const uintptr_t e = EntryAt(l, i);
+                    uint16_t idx = 0;
+                    uint64_t raw = 0;
+                    uint8_t statType = 0, regen = 0;
+                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx) || idx != want) continue;
+                    mem::Read64(e + kOff_URS_VaryStatAmount, &raw);
+                    mem::Read8(e + kOff_URS_StatType, &statType);
+                    mem::Read8(e + kOff_URS_IsRegen, &regen);
+
+                    uint32_t cool = 0, maxlv = 0;
+                    uint8_t apply = 0, dmg = 0, ui = 0, alert = 0, lowres = 0, uiAllowed = 0;
+                    mem::Read32(rec + kOff_Skill_Cooltime, &cool);
+                    mem::Read32(rec + kOff_Skill_MaxLevel, &maxlv);
+                    mem::Read8(rec + kOff_Skill_ApplyType, &apply);
+                    mem::Read8(rec + kOff_Skill_DamageType, &dmg);
+                    mem::Read8(rec + kOff_Skill_UiType, &ui);
+                    mem::Read8(rec + kOff_Skill_IsNoAlert, &alert);
+                    mem::Read8(rec + kOff_Skill_AllowLowRes, &lowres);
+                    mem::Read8(rec + kOff_Skill_IsUiAllowed, &uiAllowed);
+
+                    char key[96] = "(no key)";
+                    tables::StringKey(skill, r, key, sizeof key);
+                    LOG("[survey] %-46s amt %-8lld list %02X cool %-6u apply %u dmg %u ui %u alert %u "
+                        "lowres %u uiok %u maxlv %u statType %u regen %u", key,
+                        static_cast<long long>(raw), off, cool, apply, dmg, ui, alert, lowres,
+                        uiAllowed, maxlv, statType, regen);
+                    ++n;
+                }
+            }
+        }
+        LOG("[survey] %d entries listed.", n);
     }
 
     bool Probe()

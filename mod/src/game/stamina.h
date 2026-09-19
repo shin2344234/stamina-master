@@ -21,4 +21,10 @@ namespace us::stamina
 
     // The research report. Independent of Apply and off by default.
     bool Probe();
+
+    // One line per skill that spends stamina, with the fields that might tell
+    // a movement skill from a combat one. Written so the split can be made a
+    // setting on the strength of a field the game itself keeps, rather than on
+    // a keyword rule over the skill key. Runs under Probe=1 only.
+    void SurveyCategories();
 }
