@@ -121,8 +121,10 @@ namespace
         // Apply reads each write back as it makes it, which says the store
         // landed and nothing else. These two say whether it is still there once
         // the player is in the world, which is a different question and the one
-        // that matters when the setting is 0 and stamina still drains.
-        for (int minute = 1; minute <= 2 && !g_stop.load(); ++minute)
+        // that mattered when the setting was 0 and stamina still drained. It is
+        // behind Probe because a session that is working has nothing to learn
+        // from it, and a bug report has everything.
+        for (int minute = 1; s.probe && minute <= 2 && !g_stop.load(); ++minute)
         {
             for (int i = 0; i < 120 && !g_stop.load(); ++i) Sleep(500);
             if (g_stop.load()) break;
