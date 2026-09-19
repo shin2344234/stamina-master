@@ -10,14 +10,36 @@
 // the whole mod. private/FEASIBILITY.md has how it was found.
 namespace us::stamina
 {
-    // Multiply every stamina cost by `percent`/100. 100 changes nothing and is
-    // refused as a no-op; 0 removes the cost outright.
+    // What to keep of each kind of cost, as a percentage. 100 leaves a kind
+    // alone and 0 removes its cost outright.
     //
+    // The three kinds are the ones the game's own data supports, which is not
+    // the movement-against-combat split anyone would reach for first. Nothing
+    // in a skill record separates climbing from attacking: _cooltime,
+    // _applyType, _damageType, _uiType, _isNoAlert, _allowSkillWithLowResource,
+    // _isUiUseAllowed and _maxLevel were all checked over every skill that
+    // spends stamina, along with the entry's statType and the nine-row
+    // skillgroupinfo table, and climbing shares every value with attacking.
+    //
+    //   mount       _applyType is 1. Exactly the mounted skills, 15 of them.
+    //   continuous  _isRegen is 1 on the entry: a drain that runs while you
+    //               hold it. Sprinting, climbing, swimming, the glider, the
+    //               rocket pack, and also channelled attacks, because those
+    //               are continuous too. 61.
+    //   one-off     everything else, charged once per use. A roll, a jump,
+    //               each swing. 130.
+    struct Scale
+    {
+        int oneOff     = 100;
+        int continuous = 100;
+        int mount      = 100;
+    };
+
     // Returns how many entries were rewritten, 0 when the tables are not
     // loaded yet (worth calling again), or -1 when something was wrong enough
     // that nothing was written. Only negative amounts are touched, so a skill
     // that restores stamina keeps restoring the same amount.
-    int Apply(int percent, bool verbose);
+    int Apply(const Scale& scale, bool verbose);
 
     // The research report. Independent of Apply and off by default.
     bool Probe();
