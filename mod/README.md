@@ -1,4 +1,4 @@
-# Stamina Master 1.0.0
+# Stamina Master 1.0.1
 
 For Crimson Desert 2.03.00, exe 1.0.0.2944.
 
@@ -57,6 +57,14 @@ want the mod on your horse and nowhere else.
 `Probe=1` and restart for a line per skill, plus a re-read a minute and two
 minutes in that confirms the changes are still there. That log is the useful
 thing to attach to a bug report.
+
+The last line of that log counts the reads that faulted and were caught while
+the plugin looked for the skill table. A handful is normal, usually under ten.
+Candidate pointers are checked against a map of mapped memory first, and the
+few that still fault are ones where the memory changed in between. A count in
+the hundreds of thousands is worth reporting. If a crash reporter or another
+mod names StaminaMaster in a first-chance fault line, that is what it is
+seeing, and it was caught rather than survived.
 
 ## Licence
 

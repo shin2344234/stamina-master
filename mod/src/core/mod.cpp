@@ -133,7 +133,15 @@ namespace
                         minute == 1 ? "" : "s");
             sm::stamina::Verify(when);
         }
-        LOG("[mod] worker stopped");
+        // The fault count is here for whoever reads someone else's fault log and
+        // finds this plugin named in it. Every pointer the table search considers
+        // is range-checked and then read under a handler, so an address that is
+        // in range but not mapped faults on purpose, is caught, and the search
+        // carries on. Thousands of those in a session is the normal shape.
+        const long faults = sm::mem::FaultCount();
+        LOG("[mod] worker stopped. %ld guarded read%s faulted and %s caught, which is the pointer "
+            "probe working rather than a near miss.", faults, faults == 1 ? "" : "s",
+            faults == 1 ? "was" : "were");
         return 0;
     }
 }

@@ -7,7 +7,8 @@ swimming, gliding and riding cost a fraction of what the game charges. How much
 of a fraction is three numbers in an ini rather than a choice between five
 downloads, and no game file is touched.
 
-Not released yet. There is no mod page and no download.
+Downloads are on [Nexus](https://www.nexusmods.com/crimsondesert/mods/3549)
+and under [releases](https://github.com/shin2344234/stamina-master/releases).
 
 ## Why it is a plugin
 
@@ -23,14 +24,21 @@ extra pack groups, `dmmgen` and `dmmsa`, that overwriting it would remove.
 
 ## Settings
 
-    UsePercent=25          130 costs charged once per use: a roll, a jump, a swing
-    ContinuousPercent=10    61 drains that run while held: sprint, climb, swim, glide
-    MountPercent=25         15 things you do while mounted
+    UsePercent=0           130 costs charged once per use: a roll, a jump, a swing
+    ContinuousPercent=0     61 drains that run while held: sprint, climb, swim, glide
+    MountPercent=0          15 things you do while mounted
+    MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
     Probe=0                 write the research report and a line per skill changed
 
-Each is a percentage of the game's own cost, so 100 leaves that kind alone and
-0 removes its cost outright. A value outside 0 to 100 refuses the whole write,
-including whichever settings were in range.
+The first three are a percentage of the game's own cost, so 100 leaves that
+kind alone and 0 removes it outright. A value outside 0 to 100 refuses the
+whole write, including whichever settings were in range.
+
+`MountRegenPercent` goes the other way, because a horse does. Its gait is a
+recovery rate that falls as it speeds up, and it tires at speed because
+something drains faster than that rate. Raising the recovery is what stops it,
+and 1000 puts a full gallop at roughly what standing still gives. Below 100 is
+refused.
 
 Of the 256 entries that name Stamina, 206 are costs and get scaled, 26 are
 already zero, and 24 give stamina back. Twelve of those give-backs are a
@@ -92,6 +100,15 @@ needs the game restarted.
 
 `bin64\StaminaMaster.log` says what it did, and the sessions before it are
 `StaminaMaster.01.log` upwards.
+
+Its last line counts the reads that faulted and were caught while the plugin
+looked for the skill table. A handful is the normal number, usually under ten.
+Candidate pointers are checked against a map of mapped memory before they are
+read, and the few that still fault are ones where the memory changed between
+the check and the read. A count in the hundreds of thousands means that map is
+not doing its job, which is worth reporting. A crash reporter or another mod
+naming `StaminaMaster.asi` in a first-chance fault line is seeing one of these,
+and it is caught rather than survived.
 
 ## Licence
 

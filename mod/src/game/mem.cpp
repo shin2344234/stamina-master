@@ -443,6 +443,15 @@ namespace sm::mem
                     const uint64_t v = *reinterpret_cast<const uint64_t*>(p);
                     if (!Plausible(static_cast<uintptr_t>(v)) || InImage(static_cast<uintptr_t>(v))) continue;
                     ++cand;
+                    // Ask the page map before reading. Read64 would catch the
+                    // fault either way, but here the common case is a candidate
+                    // that passes the range check and is not mapped, and going
+                    // straight to the read turned that into 473,190 first-chance
+                    // exceptions in one session: seconds of startup, and a line
+                    // in every other mod's fault log. Readable answers most of
+                    // them from its cache, because VirtualQuery over unmapped
+                    // space returns one free region covering a vast range.
+                    if (!Readable(static_cast<uintptr_t>(v), 8)) continue;
                     uint64_t head = 0;
                     if (!Read64(static_cast<uintptr_t>(v), &head)) continue;
                     for (int i = 0; i < n; ++i)
