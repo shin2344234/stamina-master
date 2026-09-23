@@ -29,7 +29,7 @@ namespace
                Open(nullptr, kRtti_SkillManager, g_skillSlot, skill);
     }
 
-    // {items, size, capacity}, as the reader at RVA 0x01527950 writes it.
+    // {items, size, capacity}, as the reader at RVA 0x015278D0 writes it.
     struct List
     {
         uintptr_t items = 0;

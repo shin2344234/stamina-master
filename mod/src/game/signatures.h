@@ -1,10 +1,16 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.00
-// (exe 1.0.0.2944). The table machinery is Flight Freedom's, which took it from
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.02
+// (exe 1.0.0.2976). The table machinery is Flight Freedom's, which took it from
 // Master Looter. Everything about stamina came out of the research in
 // private/FEASIBILITY.md.
+//
+// Rechecked on 2.03.02 against the new exe and not carried over on trust:
+// dump_record_layout.py gives the same SkillInfo, StatusInfo and
+// UseResourceStat offsets as 2.03.00, both RTTI names are present, the
+// statusinfo resolver still matches kSig_TableResolver16, and the list reader
+// moved from 0x01527950 to 0x015278D0 with an identical body.
 namespace sm::sig
 {
     // --- Static data tables -------------------------------------------------
@@ -107,7 +113,7 @@ namespace sm::sig
     inline constexpr unsigned kOff_Skill_MaxLevel     = 0xF8; // u32
 
     // A list field is {items, size, capacity} and **not** {begin, end}. Read
-    // off its reader at RVA 0x01527950, which both list fields above call:
+    // off its reader at RVA 0x015278D0, which both list fields above call:
     // `add edx, [rbx+8]` takes the size, `mov eax, [rbx+0xC]` the capacity, and
     // the append does `lea rcx,[rax+rax*2]` then `[rax+rcx*8]`, so an element
     // is size*24 bytes along. Treating +0x08 as an end pointer is what made

@@ -76,7 +76,7 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.03.00 (exe 1.0.0.2944). UsePercent=%d ContinuousPercent=%d "
+        LOG("[mod] %s %s for Crimson Desert 2.03.02 (exe 1.0.0.2976). UsePercent=%d ContinuousPercent=%d "
             "MountPercent=%d MountRegenPercent=%d Probe=%d", SM_NAME, SM_VERSION, s.scale.oneOff,
             s.scale.continuous, s.scale.mount, s.scale.mountRegen, s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",

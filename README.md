@@ -1,6 +1,7 @@
 # Stamina Master
 
-A stamina plugin for Crimson Desert 2.03.00 (exe 1.0.0.2944).
+A stamina plugin for Crimson Desert 2.03.02 (exe 1.0.0.2976). It reads the
+skill table by its layout and not by address, so 2.03.00 runs it too.
 
 It multiplies the stamina cost of what you do, so sprinting, climbing,
 swimming, gliding and riding cost a fraction of what the game charges. How much
