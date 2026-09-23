@@ -53,8 +53,11 @@ $nx = $cfg.Data.nexus
 
 foreach ($k in @('modId', 'dmmFileId', 'manualFileId')) {
     if (-not $nx -or [string]::IsNullOrWhiteSpace([string] $nx.$k)) {
-        throw ("nexus.{0} is not set in release.json. The page and both file entries have to exist, " +
-               "created by hand for the first release. Run nexus-ids.py and copy the ids in." -f $k)
+        throw (("nexus.{0} is not set in release.json. The v3 API cannot create a file entry, so it " +
+                "has to exist first: on the page's Files tab, add a new file and upload this release's " +
+                "{1} archive by hand. Then run nexus-ids.py, copy the new id into release.json, and run " +
+                "this again. It will skip that entry as already listed and publish the other.") -f $k,
+               $(if ($k -eq 'manualFileId') { 'manual' } else { 'DMM' }))
     }
 }
 foreach ($f in @($cfg.ZipDmm, $cfg.ZipManual)) {
@@ -90,8 +93,8 @@ foreach ($e in $entries) {
         if ($hit) { $e.Already = $hit.uploaded_at }
     } catch {
         if ($Apply) {
-            throw ("Could not read what file {0} already lists ({1}). Nothing was sent, because " +
-                   "sending blind can post the changelog twice." -f $e.FileId, $_.Exception.Message)
+            throw (("Could not read what file {0} already lists ({1}). Nothing was sent, because " +
+                    "sending blind can post the changelog twice.") -f $e.FileId, $_.Exception.Message)
         }
         Write-Warning ("Could not read what file {0} already lists: {1}" -f $e.FileId, $_.Exception.Message)
     }
