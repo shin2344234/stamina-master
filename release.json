@@ -1,0 +1,21 @@
+{
+  "name": "Stamina Master",
+  "fileBase": "StaminaMaster",
+  "version": { "header": "mod/src/version.h", "macro": "SM_VERSION" },
+  "scriptsDir": "mod/scripts",
+  "dist": "mod/dist",
+  "sources": ["mod/src", "mod/StaminaMaster.ini", "mod/CMakeLists.txt"],
+  "manualZip": ["mod/README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+  "gates": [],
+  "evergreen": ["private/nexus/nexus-description.bbcode", "README.md"],
+  "github": "shin2344234/stamina-master",
+  "nexus": {
+    "game": "crimsondesert",
+    "page": "3549",
+    "modId": "38521561681373",
+    "dmmFileId": "7995870",
+    "manualFileId": "7995879"
+  },
+  "discord": { "channel": "1547305058922668072" },
+  "requires": []
+}
