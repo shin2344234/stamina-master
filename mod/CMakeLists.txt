@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(StaminaMaster LANGUAGES CXX)
+project(StaminaMaster LANGUAGES CXX RC)
 
 # Stamina Master: an ASI plugin for Crimson Desert that reduces or removes
 # the stamina cost of sprinting, climbing, swimming, gliding and riding.
@@ -56,7 +56,13 @@ add_library(StaminaMaster SHARED
     src/game/farhook.cpp
     src/game/tables.cpp
     src/game/stamina.cpp
+    src/resources.rc
 )
+
+# StaminaMaster.ini again, this time as the INIMETA resource (src/resources.rc);
+# rebuild when the ini's ;@ directives or defaults change.
+set_source_files_properties(src/resources.rc PROPERTIES OBJECT_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/StaminaMaster.ini")
 
 target_include_directories(StaminaMaster PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated" ${minhook_SOURCE_DIR}/src/hde)
 target_link_libraries(StaminaMaster PRIVATE minhook)

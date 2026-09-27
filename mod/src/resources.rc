@@ -1,0 +1,9 @@
+// Setting labels, types, ranges and help for INI Master, which reads this
+// resource from the plugin's bytes without loading it. The type must be
+// INIMETA. StaminaMaster.ini is also the file embed_ini.cmake turns into the
+// default the plugin writes on first run, so this is the one copy of that
+// text, annotated with ;@ lines, doing both jobs. Keep it in step with
+// ReadSettings in core/mod.cpp and the clamps in game/stamina.cpp;
+// scripts/check_inimeta.py checks that.
+
+SM_INIMETA INIMETA "../StaminaMaster.ini"
