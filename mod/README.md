@@ -1,4 +1,4 @@
-# Stamina Master 1.0.2
+# Stamina Master 1.0.3
 
 For Crimson Desert 2.03.02, exe 1.0.0.2976. It reads the skill table by its
 layout and not by address, so 2.03.00 runs it too.
@@ -9,12 +9,14 @@ if you would rather have it cheaper than free, change one line.
 
 ## Installing
 
-Copy `StaminaMaster.asi` and `StaminaMaster.ini` into the game's `bin64`
-folder, next to `CrimsonDesert.exe`, with the game closed. You need an ASI
+Copy `StaminaMaster.asi` into the game's `bin64` folder, next to
+`CrimsonDesert.exe`, with the game closed. The first time it runs it writes
+`StaminaMaster.ini` beside itself with every setting at its default, and an
+ini you already have is left alone. You need an ASI
 loader there already; Ultimate ASI Loader installed as `winmm.dll` is what most
 Crimson Desert setups use, and the Definitive Mod Manager installs one for you.
 
-To uninstall, delete both files. No game file is modified and there is no meta
+To uninstall, delete the `StaminaMaster` files from `bin64`. No game file is modified and there is no meta
 patch to undo.
 
 The settings are read once when the game starts, so a change to the ini needs
@@ -33,6 +35,11 @@ All of them live in `StaminaMaster.ini`.
 The first three are a percentage of the game's own cost. 100 leaves that kind
 alone, 0 removes it. A value outside 0 to 100 refuses the whole write, so a
 typo changes nothing rather than half of it.
+
+INI Master (https://www.nexusmods.com/crimsondesert/mods/3578) can edit these
+with a label, a range and the default for each, all read out of the plugin
+itself. The plugin reads its settings once at startup, so a change takes
+effect on the next launch.
 
 `MountRegenPercent` works the other way round, because a horse does. Its gait
 is a recovery rate that falls as it speeds up, and it tires at speed because
@@ -60,7 +67,7 @@ minutes in that confirms the changes are still there. That log is the useful
 thing to attach to a bug report.
 
 The last line of that log counts the reads that faulted and were caught while
-the plugin looked for the skill table. A handful is normal, usually under ten.
+the plugin looked for the skill table. A few dozen at most is normal.
 Candidate pointers are checked against a map of mapped memory first, and the
 few that still fault are ones where the memory changed in between. A count in
 the hundreds of thousands is worth reporting. If a crash reporter or another

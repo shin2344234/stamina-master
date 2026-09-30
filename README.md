@@ -35,6 +35,11 @@ The first three are a percentage of the game's own cost, so 100 leaves that
 kind alone and 0 removes it outright. A value outside 0 to 100 refuses the
 whole write, including whichever settings were in range.
 
+[INI Master](https://www.nexusmods.com/crimsondesert/mods/3578) can edit these
+with a label, a range and the default for each, all read out of the plugin
+itself. The plugin reads its settings once at startup, so a change takes
+effect on the next launch.
+
 `MountRegenPercent` goes the other way, because a horse does. Its gait is a
 recovery rate that falls as it speeds up, and it tires at speed because
 something drains faster than that rate. Raising the recovery is what stops it,
@@ -94,16 +99,17 @@ the CMake and Ninja they bundle. Output is `mod\dist\StaminaMaster.asi` with
 
 ## Installing
 
-Copy both files into the game's `bin64` next to `CrimsonDesert.exe`, with the
-game closed. An ASI loader has to be there already; on a DMM install that is
-`winmm.dll`. The settings are read once at startup, so a change to the ini
+Copy `StaminaMaster.asi` into the game's `bin64` next to `CrimsonDesert.exe`,
+with the game closed. It writes `StaminaMaster.ini` beside itself the first
+time it runs, and an ini you already have is left alone. An ASI loader has to
+be there already; on a DMM install that is `winmm.dll`. The settings are read once at startup, so a change to the ini
 needs the game restarted.
 
 `bin64\StaminaMaster.log` says what it did, and the sessions before it are
 `StaminaMaster.01.log` upwards.
 
 Its last line counts the reads that faulted and were caught while the plugin
-looked for the skill table. A handful is the normal number, usually under ten.
+looked for the skill table. A few dozen at most is normal.
 Candidate pointers are checked against a map of mapped memory before they are
 read, and the few that still fault are ones where the memory changed between
 the check and the read. A count in the hundreds of thousands means that map is
