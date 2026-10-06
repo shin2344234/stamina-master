@@ -6,6 +6,7 @@
   "dist": "mod/dist",
   "sources": ["mod/src", "mod/StaminaMaster.ini", "mod/CMakeLists.txt"],
   "manualZip": ["mod/README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+  "dmmZip": ["LICENSE", "THIRD_PARTY_NOTICES.md"],
   "gates": [
     {
       "name": "the inimeta matches ReadSettings and Apply",
