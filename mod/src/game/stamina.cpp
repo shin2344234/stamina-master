@@ -13,23 +13,38 @@ using sm::tables::Table;
 
 namespace
 {
-    struct Slot { Table byName, byRtti; };
+    struct Slot { Table byName, byRtti; bool told = false; };
     Slot g_statusSlot, g_skillSlot;
 
-    bool Open(const char* name, const char* rtti, Slot& s, Table& out)
+    // Says once per table which route opened it. statusinfo by its resolver
+    // means kSig_TableResolver16 still fits this build; by its manager means
+    // the pattern missed and the RTTI fallback covered for it, which works but
+    // is the first sign of a patch.
+    void Announce(const char* label, Slot& s, const Table& t)
     {
-        if (name && sm::tables::Resolve(name, s.byName)) { out = s.byName; return true; }
-        if (rtti && sm::tables::ResolveByManager(rtti, s.byRtti)) { out = s.byRtti; return true; }
-        return false;
+        if (s.told) return;
+        s.told = true;
+        LOG("[table] %s opened by its %s: global +0x%llX, %u rows, defs at +0x%X", label,
+            t.viaRtti ? "manager's RTTI" : "resolver",
+            static_cast<unsigned long long>(sm::mem::Rva(t.global)), t.rows, t.defsOff);
+    }
+
+    bool Open(const char* label, const char* name, const char* rtti, Slot& s, Table& out)
+    {
+        if (name && sm::tables::Resolve(name, s.byName)) out = s.byName;
+        else if (rtti && sm::tables::ResolveByManager(rtti, s.byRtti)) out = s.byRtti;
+        else return false;
+        Announce(label, s, out);
+        return true;
     }
 
     bool OpenBoth(Table& status, Table& skill)
     {
-        return Open(kStr_StatusTable, kRtti_StatusManager, g_statusSlot, status) &&
-               Open(nullptr, kRtti_SkillManager, g_skillSlot, skill);
+        return Open("statusinfo", kStr_StatusTable, kRtti_StatusManager, g_statusSlot, status) &&
+               Open("skill", nullptr, kRtti_SkillManager, g_skillSlot, skill);
     }
 
-    // {items, size, capacity}, as the reader at RVA 0x015278D0 writes it.
+    // {items, size, capacity}, as the reader at RVA 0x01730D30 writes it.
     struct List
     {
         uintptr_t items = 0;

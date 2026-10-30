@@ -1,7 +1,7 @@
 # Stamina Master 1.0.3
 
-For Crimson Desert 2.03.02, exe 1.0.0.2976. It reads the skill table by its
-layout and not by address, so 2.03.00 runs it too.
+For Crimson Desert 2.04.00, the DLC build, exe 1.0.0.3392. The DLC moved the
+table layouts it reads, so 2.03.02 and older need 1.0.3.
 
 Out of the box nothing you do on foot costs stamina, and a horse recovers at a
 gallop about as fast as it does standing still. Every number is a setting, so
