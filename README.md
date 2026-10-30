@@ -53,9 +53,6 @@ horse's gait and `MountRegenPercent` raises them. The other twelve are your own
 recovery while standing, walking, guarding or hanging on a ledge, and nothing
 here touches them.
 
-The skills the DLC adds, such as the upgraded Crow Wing and rocket pack, have
-not been tested yet and may keep their own costs.
-
 ## Why those three kinds and not movement against combat
 
 Because the game does not record whether a skill is for travelling or for

@@ -1,4 +1,4 @@
-# Stamina Master 1.0.4
+# Stamina Master 1.0.5
 
 For Crimson Desert 2.04.00 and 2.04.02, the DLC builds, exe 1.0.0.3392,
 1.0.0.3424 and 1.0.0.3446. The DLC moved the table layouts it reads, so 2.03.02
@@ -55,9 +55,6 @@ recovery abilities restore exactly what they always did.
 
 Sprinting, climbing, swimming, the glider, the rocket pack, rolls, jumps, every
 weapon swing, grapples, bow shots, the war machine's weapons, and riding.
-
-The skills the DLC adds, such as the upgraded Crow Wing and rocket pack, have
-not been tested yet and may keep their own costs.
 
 Combat is included because the game keeps no flag anywhere that separates
 travelling from fighting. Set `UsePercent` and `ContinuousPercent` to 100 if you
