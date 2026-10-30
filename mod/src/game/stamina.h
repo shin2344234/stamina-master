@@ -54,8 +54,10 @@ namespace sm::stamina
     // that restores stamina keeps restoring the same amount.
     int Apply(const Scale& scale, bool verbose);
 
-    // The research report. Independent of Apply and off by default.
-    bool Probe();
+    // The research report. Independent of Apply and off by default. Returns
+    // false while the named skill rows are not all in the table yet, so the
+    // worker asks again; lastTry reports whatever is there instead.
+    bool Probe(bool lastTry);
 
     // One line per skill that spends stamina, with the fields that might tell
     // a movement skill from a combat one. Written so the split can be made a

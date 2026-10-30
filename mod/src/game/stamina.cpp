@@ -93,6 +93,52 @@ namespace
     }
 
     const unsigned kLists[2] = { kOff_Skill_UseResourceStatList, kOff_Skill_UseDriverResourceStatList };
+
+    // How many entries name Stamina, over the whole table, writing nothing.
+    int CountEntries(const Table& skill, uint16_t want)
+    {
+        int n = 0;
+        for (uint32_t r = 0; r < skill.rows; ++r)
+        {
+            const uintptr_t rec = sm::tables::Def(skill, r);
+            if (!rec) continue;
+            for (unsigned off : kLists)
+            {
+                List l;
+                if (!ReadList(rec, off, l)) continue;
+                for (unsigned i = 0; i < l.size; ++i)
+                {
+                    uint16_t idx = 0;
+                    if (sm::mem::Read16(EntryAt(l, i) + kOff_URS_StatusInfo, &idx) && idx == want) ++n;
+                }
+            }
+        }
+        return n;
+    }
+
+    // The table object and its row count exist before the rows are filled in.
+    // On 3424 one session opened skill with all 2158 rows counted, found
+    // Skill_Looting and none of the movement rows, walked no stamina entry at
+    // all, and gave up for the session; a minute later every cost was there.
+    // A walk over a table half filled would have been worse, rewriting the
+    // rows that had arrived and leaving the rest at full cost. So the table
+    // counts as loaded once the six named rows are in it and the number of
+    // Stamina entries is the same on two passes a second apart.
+    bool SkillLoaded(const Table& skill, uint16_t want)
+    {
+        static int s_lastSeen = -1, s_passes = 0;
+        ++s_passes;
+        for (const char* key : { kSkillKey_Sprint, kSkillKey_Climb, kSkillKey_Swim,
+                                 kSkillKey_Glide, kSkillKey_Horse, kSkillKey_Gallop })
+            if (sm::tables::RowByKey(skill, key) < 0) { s_lastSeen = -1; return false; }
+        const int seen = CountEntries(skill, want);
+        const bool steady = seen > 0 && seen == s_lastSeen;
+        s_lastSeen = seen;
+        if (steady)
+            LOG("[stamina] skill holds the six named rows and %d Stamina entries on two passes in a row, "
+                "so it counts as loaded (pass %d).", seen, s_passes);
+        return steady;
+    }
 }
 
 namespace sm::stamina
@@ -137,6 +183,7 @@ namespace sm::stamina
                     "named and nothing is written.", kHash_Stamina);
             return -1;
         }
+        if (!SkillLoaded(skill, want)) return 0;
 
         int changed = 0, skippedPositive = 0, failed = 0, shown = 0;
         int byKind[4] = {};            // one-off, continuous, mount, mount regen
@@ -315,15 +362,10 @@ namespace sm::stamina
         LOG("[survey] %d entries listed.", n);
     }
 
-    bool Probe()
+    bool Probe(bool lastTry)
     {
         Table status, skill;
         if (!OpenBoth(status, skill)) return false;
-
-        uint16_t want = 0;
-        if (!StaminaIndex(status, want)) { LOG_ERR("[probe] Stamina is not in statusinfo by hash."); return true; }
-        LOG_OK("[probe] statusinfo %u rows, skill %u rows, Stamina _statusIndex %u", status.rows,
-               skill.rows, want);
 
         // The five movement rows and one that must stay clean. This is the
         // check that the walk is reading what the files describe; a row count
@@ -335,6 +377,18 @@ namespace sm::stamina
             { kSkillKey_Sprint, true }, { kSkillKey_Climb, true }, { kSkillKey_Swim, true },
             { kSkillKey_Glide,  true }, { kSkillKey_Horse, true }, { kSkillKey_Control, false },
         };
+
+        // Skill opens with its row count before the rows are filled in, so a
+        // missing name this early is a table still loading. See Apply.
+        if (!lastTry)
+            for (const Row& R : rows)
+                if (tables::RowByKey(skill, R.key) < 0) return false;
+
+        uint16_t want = 0;
+        if (!StaminaIndex(status, want)) { LOG_ERR("[probe] Stamina is not in statusinfo by hash."); return true; }
+        LOG_OK("[probe] statusinfo %u rows, skill %u rows, Stamina _statusIndex %u", status.rows,
+               skill.rows, want);
+
         int agreed = 0, checked = 0;
         for (const Row& R : rows)
         {

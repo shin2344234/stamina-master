@@ -91,13 +91,14 @@ namespace
         while (!g_stop.load())
         {
             // Before Apply, so the survey reports the game's own amounts
-            // rather than the scaled ones.
+            // rather than the scaled ones. Apply waits for it for the same
+            // reason.
             if (!probed)
             {
-                probed = sm::stamina::Probe();
+                probed = sm::stamina::Probe(waited == 119);
                 if (probed) sm::stamina::SurveyCategories();
             }
-            if (!applied)
+            if (!applied && probed)
             {
                 // 0 means the tables are not loaded yet and the call is worth
                 // repeating, unless there was nothing to do in the first place.
@@ -108,9 +109,9 @@ namespace
             }
             if (!(probed && applied) && ++waited == 120)
             {
-                LOG_ERR("[mod] statusinfo and skill were still not both loaded after two minutes, so no "
-                        "stamina cost has been changed this session. The table machinery has changed on "
-                        "this build.");
+                LOG_ERR("[mod] statusinfo and skill were still not both loaded after two minutes, or skill "
+                        "held no stamina cost yet, so no stamina cost has been changed this session. The "
+                        "table machinery has changed on this build.");
                 probed = applied = true;
             }
             if (probed && applied)
