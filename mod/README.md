@@ -1,4 +1,4 @@
-# Stamina Master 1.0.3
+# Stamina Master 1.0.4-test1
 
 For Crimson Desert 2.04.00, the DLC build, exe 1.0.0.3392. The DLC moved the
 table layouts it reads, so 2.03.02 and older need 1.0.3.
