@@ -20,6 +20,12 @@
 // offsets, and the list reader is the same bytes at 0x01731E60. skill and
 // statusinfo in the 3424 packs are byte-identical to 3392's. Every value below
 // fits both builds.
+//
+// Exe 1.0.0.3446 (Steam build 26329202, 0.paver 2.04.02) changed none of it
+// either. 130 resolver hits, statusinfo's global at 0x71B2A18, both vtables,
+// the same three loader dumps, and the list reader the same bytes at
+// 0x01732A10. statusinfo is byte-identical. skill gained one row with no
+// stamina cost and the six named rows are unchanged.
 namespace sm::sig
 {
     // --- Static data tables -------------------------------------------------

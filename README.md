@@ -1,8 +1,8 @@
 # Stamina Master
 
-A stamina plugin for Crimson Desert 2.04.00, the DLC build (exe 1.0.0.3392 and
-1.0.0.3424). The DLC moved the table layouts it reads, so 2.03.02 and older
-need 1.0.3.
+A stamina plugin for Crimson Desert 2.04.00 and 2.04.02, the DLC builds (exe
+1.0.0.3392, 1.0.0.3424 and 1.0.0.3446). The DLC moved the table layouts it
+reads, so 2.03.02 and older need 1.0.3.
 
 It multiplies the stamina cost of what you do, so sprinting, climbing,
 swimming, gliding and riding cost a fraction of what the game charges. How much
