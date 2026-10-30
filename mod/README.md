@@ -1,4 +1,4 @@
-# Stamina Master 1.0.3
+# Stamina Master 1.0.4
 
 For Crimson Desert 2.04.00, the DLC build, exe 1.0.0.3392. The DLC moved the
 table layouts it reads, so 2.03.02 and older need 1.0.3.
@@ -26,8 +26,8 @@ a restart.
 
 All of them live in `StaminaMaster.ini`.
 
-    UsePercent=0            costs charged once per use, 130 of them
-    ContinuousPercent=0     drains that run while you hold them, 61
+    UsePercent=0            costs charged once per use, 136 of them
+    ContinuousPercent=0     drains that run while you hold them, 62
     MountPercent=0          things you do while mounted, 15
     MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
     Probe=0                 write the research report to the log
@@ -54,6 +54,9 @@ recovery abilities restore exactly what they always did.
 
 Sprinting, climbing, swimming, the glider, the rocket pack, rolls, jumps, every
 weapon swing, grapples, bow shots, the war machine's weapons, and riding.
+
+The skills the DLC adds, such as the upgraded Crow Wing and rocket pack, have
+not been tested yet and may keep their own costs.
 
 Combat is included because the game keeps no flag anywhere that separates
 travelling from fighting. Set `UsePercent` and `ContinuousPercent` to 100 if you

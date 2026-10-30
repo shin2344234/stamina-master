@@ -25,8 +25,8 @@ extra pack groups, `dmmgen` and `dmmsa`, that overwriting it would remove.
 
 ## Settings
 
-    UsePercent=0           130 costs charged once per use: a roll, a jump, a swing
-    ContinuousPercent=0     61 drains that run while held: sprint, climb, swim, glide
+    UsePercent=0           136 costs charged once per use: a roll, a jump, a swing
+    ContinuousPercent=0     62 drains that run while held: sprint, climb, swim, glide
     MountPercent=0          15 things you do while mounted
     MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
     Probe=0                 write the research report and a line per skill changed
@@ -46,11 +46,14 @@ something drains faster than that rate. Raising the recovery is what stops it,
 and 1000 puts a full gallop at roughly what standing still gives. Below 100 is
 refused.
 
-Of the 256 entries that name Stamina, 206 are costs and get scaled, 26 are
+Of the 263 entries that name Stamina, 213 are costs and get scaled, 26 are
 already zero, and 24 give stamina back. Twelve of those give-backs are a
 horse's gait and `MountRegenPercent` raises them. The other twelve are your own
 recovery while standing, walking, guarding or hanging on a ledge, and nothing
 here touches them.
+
+The skills the DLC adds, such as the upgraded Crow Wing and rocket pack, have
+not been tested yet and may keep their own costs.
 
 ## Why those three kinds and not movement against combat
 
