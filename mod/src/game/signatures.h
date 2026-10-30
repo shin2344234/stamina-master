@@ -13,6 +13,13 @@
 // The two skill list offsets and the whole UseResourceStat record did not
 // move. The list reader moved again, to 0x01730D30, with the same body.
 // Nothing here fits 1.0.0.2976 any longer.
+//
+// Exe 1.0.0.3424 (Steam build 26317560) changed none of it. The resolver
+// pattern still hits 130 times and leads statusinfo to its global at
+// 0x71AFA28, both manager vtables are there, the three loaders dump the same
+// offsets, and the list reader is the same bytes at 0x01731E60. skill and
+// statusinfo in the 3424 packs are byte-identical to 3392's. Every value below
+// fits both builds.
 namespace sm::sig
 {
     // --- Static data tables -------------------------------------------------
