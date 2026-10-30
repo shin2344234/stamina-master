@@ -112,6 +112,12 @@ needs the game restarted.
 `bin64\StaminaMaster.log` says what it did, and the sessions before it are
 `StaminaMaster.01.log` upwards.
 
+The game opens the skill table before it has filled it in, so the plugin
+writes nothing until the six rows it checks by name are there and the count of
+stamina entries is the same on two passes a second apart. The log has a line
+for the moment that happens. A table still short of that after two minutes
+leaves stamina as the game has it, and the log says so.
+
 Its last line counts the reads that faulted and were caught while the plugin
 looked for the skill table. A few dozen at most is normal.
 Candidate pointers are checked against a map of mapped memory before they are
