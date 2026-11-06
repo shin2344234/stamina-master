@@ -123,6 +123,12 @@ namespace sm::sig
 
     inline constexpr uint32_t kHash_Stamina        = 0xC08A2354u;
     inline constexpr uint32_t kHash_StaminaUseDown = 0x0CC20117u;
+    // Spirit. The game's own name for it is Mp (the strings call it
+    // Knowledge_Mp#Spirit), row 23 of the extracted statusinfo, key 1000027,
+    // one row after Stamina. hashlittle over "mp", checked offline with the
+    // same function that gives kHash_Stamina for "stamina". Its costs are the
+    // same UseResourceStat entries in the same two lists, naming Mp instead.
+    inline constexpr uint32_t kHash_Spirit         = 0xE26925FBu;
 
     inline constexpr unsigned kOff_Skill_UseResourceStatList       = 0xA8;
     inline constexpr unsigned kOff_Skill_UseDriverResourceStatList = 0xC8;
@@ -198,4 +204,18 @@ namespace sm::sig
     // so anything the walk finds on it is something every skill shares and not
     // the cost list.
     inline constexpr const char* kSkillKey_Control  = "Skill_Looting";
+
+    // Rows the probe prints in full, every entry on every status, without
+    // checking them against anything. The three super dashes are the glider
+    // and rocket pack boosts and spend Spirit in the extracted table; the
+    // double jump and the sky kick spend it too. The guard rows are there
+    // because blocking a hit costs stamina in play and no guard skill carries
+    // a negative Stamina entry in the files, so whatever charges it is not a
+    // skill cost and these are the nearest rows to look at.
+    inline constexpr const char* kSkillKeys_Report[] = {
+        "Skill_CrowSuperDash", "Skill_Damian_ShieldGlider_SuperDash",
+        "Skill_Oongka_RocketPack_SuperDash", "Skill_DoubleJump", "Skill_SkyKick",
+        "Skill_GuardWait", "Skill_GuardSuccessRecovery", "Active_Guard_ResetStamina",
+        "Active_GuardBreak",
+    };
 }

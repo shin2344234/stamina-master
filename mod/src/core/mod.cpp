@@ -67,6 +67,7 @@ namespace
         s.scale.continuous = static_cast<int>(ReadSetting(L"ContinuousPercent", L"0"));
         s.scale.mount      = static_cast<int>(ReadSetting(L"MountPercent", L"0"));
         s.scale.mountRegen = static_cast<int>(ReadSetting(L"MountRegenPercent", L"1000"));
+        s.scale.spirit     = static_cast<int>(ReadSetting(L"SpiritPercent", L"100"));
         s.probe            = ReadSetting(L"Probe", L"0") != 0.0f;
         return s;
     }
@@ -76,9 +77,10 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.04.02 (exe 1.0.0.3446). UsePercent=%d ContinuousPercent=%d "
-            "MountPercent=%d MountRegenPercent=%d Probe=%d", SM_NAME, SM_VERSION, s.scale.oneOff,
-            s.scale.continuous, s.scale.mount, s.scale.mountRegen, s.probe ? 1 : 0);
+        LOG("[mod] %s %s for Crimson Desert 2.04.08 (exe 1.0.0.3576). UsePercent=%d ContinuousPercent=%d "
+            "MountPercent=%d MountRegenPercent=%d SpiritPercent=%d Probe=%d", SM_NAME, SM_VERSION,
+            s.scale.oneOff, s.scale.continuous, s.scale.mount, s.scale.mountRegen, s.scale.spirit,
+            s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(sm::mem::Game().base), sm::mem::Game().size);
 
@@ -103,7 +105,8 @@ namespace
                 // 0 means the tables are not loaded yet and the call is worth
                 // repeating, unless there was nothing to do in the first place.
                 const bool nothingToDo = s.scale.oneOff == 100 && s.scale.continuous == 100 &&
-                                         s.scale.mount == 100 && s.scale.mountRegen == 100;
+                                         s.scale.mount == 100 && s.scale.mountRegen == 100 &&
+                                         s.scale.spirit == 100;
                 const int n = sm::stamina::Apply(s.scale, s.probe);
                 applied = n != 0 || nothingToDo;
             }

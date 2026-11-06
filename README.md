@@ -30,6 +30,7 @@ extra pack groups, `dmmgen` and `dmmsa`, that overwriting it would remove.
     ContinuousPercent=0     62 drains that run while held: sprint, climb, swim, glide
     MountPercent=0          15 things you do while mounted
     MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
+    SpiritPercent=100       Spirit costs, 100 leaves them alone
     Probe=0                 write the research report and a line per skill changed
 
 The first three are a percentage of the game's own cost, so 100 leaves that
@@ -46,6 +47,15 @@ recovery rate that falls as it speeds up, and it tires at speed because
 something drains faster than that rate. Raising the recovery is what stops it,
 and 1000 puts a full gallop at roughly what standing still gives. Below 100 is
 refused.
+
+`SpiritPercent` is the blue bar, and it works like the first three. The dash
+while gliding, the rocket pack dash, the double jump, the sky kick and the
+elemental skills all spend Spirit. It defaults to 100, which leaves Spirit as
+the game has it, and 0 makes every Spirit cost free. Anything that gives Spirit
+back is left alone.
+
+Blocking a hit is the one stamina loss it doesn't reach. The game charges a
+blocked hit outside the skill table, so a guard still drains at 0.
 
 Of the 263 entries that name Stamina, 213 are costs and get scaled, 26 are
 already zero, and 24 give stamina back. Twelve of those give-backs are a

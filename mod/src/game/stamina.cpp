@@ -77,19 +77,30 @@ namespace
     // the hash the record carries rather than by its name: the hash is what the
     // game matches on, it is four bytes at a known offset, and it was checked
     // offline against hashlittle over the lowercase name.
-    bool StaminaIndex(const Table& status, uint16_t& out)
+    bool IndexByHash(const Table& status, uint32_t hash, uint16_t& out)
     {
         for (uint32_t r = 0; r < status.rows; ++r)
         {
             uint32_t h = 0;
             const uintptr_t def = sm::tables::Def(status, r);
-            if (!def || !sm::mem::Read32(def + kOff_Status_KeyHash, &h) || h != kHash_Stamina) continue;
+            if (!def || !sm::mem::Read32(def + kOff_Status_KeyHash, &h) || h != hash) continue;
             uint32_t idx = 0;
             if (!sm::mem::Read32(def + kOff_Status_Index, &idx) || idx > 0xFFFF) return false;
             out = static_cast<uint16_t>(idx);
             return true;
         }
         return false;
+    }
+
+    bool StaminaIndex(const Table& status, uint16_t& out) { return IndexByHash(status, kHash_Stamina, out); }
+
+    // Spirit's index, or 0xFFFF when no row hashes to it. A missing Spirit row
+    // costs the Spirit setting and nothing else, so it is not a reason to stop
+    // the stamina write.
+    uint16_t SpiritIndex(const Table& status)
+    {
+        uint16_t out = 0;
+        return IndexByHash(status, kHash_Spirit, out) ? out : 0xFFFF;
     }
 
     const unsigned kLists[2] = { kOff_Skill_UseResourceStatList, kOff_Skill_UseDriverResourceStatList };
@@ -149,6 +160,7 @@ namespace sm::stamina
             { scale.oneOff,     "UsePercent" },
             { scale.continuous, "ContinuousPercent" },
             { scale.mount,      "MountPercent" },
+            { scale.spirit,     "SpiritPercent" },
         };
         for (const auto& s : settings)
             if (s.v < 0 || s.v > 100)
@@ -166,7 +178,7 @@ namespace sm::stamina
             return -1;
         }
         if (scale.oneOff == 100 && scale.continuous == 100 && scale.mount == 100 &&
-            scale.mountRegen == 100)
+            scale.mountRegen == 100 && scale.spirit == 100)
         {
             LOG("[stamina] every setting is 100, so the game's own numbers stand and nothing is "
                 "written.");
@@ -185,9 +197,22 @@ namespace sm::stamina
         }
         if (!SkillLoaded(skill, want)) return 0;
 
+        uint16_t spirit = 0xFFFF;
+        if (scale.spirit != 100)
+        {
+            spirit = SpiritIndex(status);
+            if (spirit == 0xFFFF)
+                LOG_ERR("[stamina] SpiritPercent is %d, but no statusinfo row hashes to 0x%08X, so Spirit "
+                        "could not be named and its costs are left alone. Stamina is unaffected.",
+                        scale.spirit, kHash_Spirit);
+            else
+                LOG("[stamina] Spirit is statusinfo row %u; its costs go to %d%%.", spirit, scale.spirit);
+        }
+
         int changed = 0, skippedPositive = 0, failed = 0, shown = 0;
-        int byKind[4] = {};            // one-off, continuous, mount, mount regen
-        static const char* kKind[4] = { "one-off", "continuous", "mount", "mount regen" };
+        int spiritKept = 0;            // Spirit entries that give Spirit back, left alone
+        int byKind[5] = {};            // one-off, continuous, mount, mount regen, spirit
+        static const char* kKind[5] = { "one-off", "continuous", "mount", "mount regen", "spirit" };
         for (uint32_t r = 0; r < skill.rows; ++r)
         {
             const uintptr_t rec = tables::Def(skill, r);
@@ -205,19 +230,31 @@ namespace sm::stamina
                     uint16_t idx = 0;
                     uint64_t raw = 0;
                     uint8_t regen = 0;
-                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx) || idx != want) continue;
+                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx)) continue;
+                    const bool isSpirit = spirit != 0xFFFF && idx == spirit;
+                    if (idx != want && !isSpirit) continue;
                     if (!mem::Read64(e + kOff_URS_VaryStatAmount, &raw)) continue;
                     mem::Read8(e + kOff_URS_IsRegen, &regen);
 
                     const int64_t before = static_cast<int64_t>(raw);
 
+                    int kind, percent;
+                    if (isSpirit)
+                    {
+                        // One setting for every Spirit cost. Nobody has asked
+                        // for Spirit split by kind, and a positive amount is a
+                        // give-back that stays as it is.
+                        if (before > 0) { ++spiritKept; continue; }
+                        if (before == 0) continue;
+                        kind = 4;
+                        percent = scale.spirit;
+                    }
                     // Spending is negative. A positive amount gives stamina
                     // back, and the only one of those this mod touches is a
                     // mounted regen rate, because that is what decides whether
                     // a horse tires. Every other give-back is left alone, so
                     // food and rest restore what they did.
-                    int kind, percent;
-                    if (before > 0)
+                    else if (before > 0)
                     {
                         if (applyType != 1 || scale.mountRegen == 100) { ++skippedPositive; continue; }
                         kind = 3;
@@ -264,10 +301,13 @@ namespace sm::stamina
             return -1;
         }
         LOG_OK("[stamina] %d number%s rewritten: %d one-off at %d%%, %d continuous at %d%%, "
-               "%d mounted at %d%%, %d mounted regen at %d%%.%s", changed, changed == 1 ? "" : "s",
-               byKind[0], scale.oneOff, byKind[1], scale.continuous, byKind[2], scale.mount,
-               byKind[3], scale.mountRegen,
+               "%d mounted at %d%%, %d mounted regen at %d%%, %d spirit at %d%%.%s", changed,
+               changed == 1 ? "" : "s", byKind[0], scale.oneOff, byKind[1], scale.continuous, byKind[2],
+               scale.mount, byKind[3], scale.mountRegen, byKind[4], scale.spirit,
                failed ? " Some writes were refused; see above." : "");
+        if (spiritKept)
+            LOG("[stamina] %d Spirit entr%s carried a positive amount and %s left alone.", spiritKept,
+                spiritKept == 1 ? "y" : "ies", spiritKept == 1 ? "was" : "were");
         if (skippedPositive)
             LOG("[stamina] %d entr%s carried a positive amount and %s left alone. Those give stamina "
                 "rather than spend it, so food and rest still restore what they did.", skippedPositive,
@@ -283,9 +323,11 @@ namespace sm::stamina
         if (!OpenBoth(status, skill)) return;
         uint16_t want = 0;
         if (!StaminaIndex(status, want)) return;
+        const uint16_t spirit = SpiritIndex(status);
 
         for (const char* key : { kSkillKey_Sprint, kSkillKey_Climb, kSkillKey_Swim,
-                                 kSkillKey_Glide, kSkillKey_Horse, kSkillKey_Gallop })
+                                 kSkillKey_Glide, kSkillKey_Horse, kSkillKey_Gallop,
+                                 "Skill_CrowSuperDash" })
         {
             const int row = tables::RowByKey(skill, key);
             if (row < 0) continue;
@@ -299,9 +341,11 @@ namespace sm::stamina
                     const uintptr_t e = EntryAt(l, i);
                     uint16_t idx = 0;
                     uint64_t raw = 0;
-                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx) || idx != want) continue;
+                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx)) continue;
+                    if (idx != want && (spirit == 0xFFFF || idx != spirit)) continue;
                     mem::Read64(e + kOff_URS_VaryStatAmount, &raw);
-                    LOG("[verify] %-34s %s: %lld", key, when, static_cast<long long>(raw));
+                    LOG("[verify] %-34s %s %s: %lld", key, idx == want ? "stamina" : "spirit ", when,
+                        static_cast<long long>(raw));
                 }
             }
         }
@@ -313,8 +357,9 @@ namespace sm::stamina
         if (!OpenBoth(status, skill)) return;
         uint16_t want = 0;
         if (!StaminaIndex(status, want)) return;
+        const uint16_t spirit = SpiritIndex(status);
 
-        LOG("[survey] every skill that spends stamina, with the fields that might separate movement from "
+        LOG("[survey] every skill that spends stamina or Spirit, with the fields that might separate movement from "
             "combat. cool is _cooltime, apply _applyType, dmg _damageType, ui _uiType, alert "
             "_isNoAlert, lowres _allowSkillWithLowResource, maxlv _maxLevel, then the entry's own "
             "statType and isRegen.");
@@ -333,7 +378,9 @@ namespace sm::stamina
                     uint16_t idx = 0;
                     uint64_t raw = 0;
                     uint8_t statType = 0, regen = 0;
-                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx) || idx != want) continue;
+                    if (!mem::Read16(e + kOff_URS_StatusInfo, &idx)) continue;
+                    if (idx != want && (spirit == 0xFFFF || idx != spirit)) continue;
+                    const char* stat = idx == want ? "Stamina" : "Spirit ";
                     mem::Read64(e + kOff_URS_VaryStatAmount, &raw);
                     mem::Read8(e + kOff_URS_StatType, &statType);
                     mem::Read8(e + kOff_URS_IsRegen, &regen);
@@ -351,8 +398,8 @@ namespace sm::stamina
 
                     char key[96] = "(no key)";
                     tables::StringKey(skill, r, key, sizeof key);
-                    LOG("[survey] %-46s amt %-8lld list %02X cool %-6u apply %u dmg %u ui %u alert %u "
-                        "lowres %u uiok %u maxlv %u statType %u regen %u", key,
+                    LOG("[survey] %s %-46s amt %-8lld list %02X cool %-6u apply %u dmg %u ui %u alert %u "
+                        "lowres %u uiok %u maxlv %u statType %u regen %u", stat, key,
                         static_cast<long long>(raw), off, cool, apply, dmg, ui, alert, lowres,
                         uiAllowed, maxlv, statType, regen);
                     ++n;
@@ -427,6 +474,47 @@ namespace sm::stamina
         }
         LOG(agreed == checked ? "[probe] all %d named rows agree with the files."
                               : "[probe] only %d of %d named rows agree with the files.", agreed, checked);
+
+        const uint16_t spirit = SpiritIndex(status);
+        if (spirit == 0xFFFF)
+            LOG_ERR("[probe] no statusinfo row hashes to 0x%08X, so Spirit is not named on this build.",
+                    kHash_Spirit);
+        else
+            LOG_OK("[probe] Spirit _statusIndex %u (the files put it one row after Stamina).", spirit);
+
+        // Every entry on the report rows, whatever status it names. Nothing is
+        // checked here; these lines are for reading.
+        for (const char* key : kSkillKeys_Report)
+        {
+            const int row = tables::RowByKey(skill, key);
+            if (row < 0) { LOG("[probe] report row %s is not in the table.", key); continue; }
+            const uintptr_t rec = tables::Def(skill, static_cast<uint32_t>(row));
+            int entries = 0;
+            for (unsigned off : kLists)
+            {
+                List l;
+                if (!ReadList(rec, off, l)) { LOG("[probe] %s +0x%02X: list unreadable", key, off); continue; }
+                for (unsigned i = 0; i < l.size; ++i, ++entries)
+                {
+                    const uintptr_t e = EntryAt(l, i);
+                    uint16_t idx = 0, inc = 0, dec = 0;
+                    uint8_t statType = 0, regen = 0;
+                    uint64_t raw = 0;
+                    mem::Read16(e + kOff_URS_StatusInfo, &idx);
+                    mem::Read8 (e + kOff_URS_StatType, &statType);
+                    mem::Read8 (e + kOff_URS_IsRegen, &regen);
+                    mem::Read64(e + kOff_URS_VaryStatAmount, &raw);
+                    mem::Read16(e + kOff_URS_IncreaseStatus, &inc);
+                    mem::Read16(e + kOff_URS_DecreaseStatus, &dec);
+                    char name[96] = "(no key)";
+                    tables::StringKey(status, idx, name, sizeof name);
+                    LOG("[probe] report %s +0x%02X[%u]: status %u %s, statType %u, isRegen %u, amount %lld, "
+                        "inc %u dec %u%s", key, off, i, idx, name, statType, regen,
+                        static_cast<long long>(raw), inc, dec, raw == 0 ? " (amount reads zero)" : "");
+                }
+            }
+            if (!entries) LOG("[probe] report %s: both lists empty", key);
+        }
         return true;
     }
 }

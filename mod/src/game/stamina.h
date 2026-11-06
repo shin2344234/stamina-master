@@ -46,6 +46,15 @@ namespace sm::stamina
         // alone. This is the only setting that multiplies a positive amount,
         // and it only touches mounted skills.
         int mountRegen = 100;
+
+        // Spirit costs, on foot or mounted, held or tapped: the glider and
+        // rocket pack dashes, the double jump, the sky kick, the elemental
+        // attacks and the other skills that empty the blue bar. They are
+        // UseResourceStat entries like the stamina ones, naming the Mp status
+        // instead, so the same write applies. Only negative amounts are
+        // touched, so anything that restores Spirit keeps restoring it. 100,
+        // the default, leaves Spirit as the game has it.
+        int spirit = 100;
     };
 
     // Returns how many entries were rewritten, 0 when the tables are not

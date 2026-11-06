@@ -31,6 +31,7 @@ All of them live in `StaminaMaster.ini`.
     ContinuousPercent=0     drains that run while you hold them, 62
     MountPercent=0          things you do while mounted, 15
     MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
+    SpiritPercent=100       Spirit costs, 100 leaves them alone
     Probe=0                 write the research report to the log
 
 The first three are a percentage of the game's own cost. 100 leaves that kind
@@ -48,13 +49,23 @@ something drains faster than that rate. Raising the recovery is what stops it.
 100 leaves the game's own rates alone; the default of 1000 puts a full gallop
 at roughly what standing still gives.
 
+`SpiritPercent` is the blue bar, and it works like the first three. The dash
+while gliding, the rocket pack dash, the double jump, the sky kick and the
+elemental skills all spend Spirit. It defaults to 100, which leaves Spirit as
+the game has it, and 0 makes every Spirit cost free. Anything that gives Spirit
+back is left alone.
+
 Skills that give **you** stamina back are never touched, so food, rest and
 recovery abilities restore exactly what they always did.
 
 ## What it reaches
 
-Sprinting, climbing, swimming, the glider, the rocket pack, rolls, jumps, every
-weapon swing, grapples, bow shots, the war machine's weapons, and riding.
+Sprinting, climbing, swimming, the glider, the rocket pack, rolls, jumps,
+weapon swings, grapples, bow shots, the war machine's weapons, and riding.
+With `SpiritPercent` below 100, Spirit costs as well.
+
+Blocking a hit is the one stamina loss it doesn't reach. The game charges a
+blocked hit outside the skill table, so a guard still drains at 0.
 
 Combat is included because the game keeps no flag anywhere that separates
 travelling from fighting. Set `UsePercent` and `ContinuousPercent` to 100 if you
