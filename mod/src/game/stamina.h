@@ -55,6 +55,11 @@ namespace sm::stamina
         // touched, so anything that restores Spirit keeps restoring it. 100,
         // the default, leaves Spirit as the game has it.
         int spirit = 100;
+
+        // What a blocked hit costs. The game charges it outside the skill
+        // table, from six settings picked by how hard the hit is, so Apply
+        // only range-checks this and ApplyGuard does the work.
+        int guard = 100;
     };
 
     // Returns how many entries were rewritten, 0 when the tables are not
@@ -62,6 +67,14 @@ namespace sm::stamina
     // that nothing was written. Only negative amounts are touched, so a skill
     // that restores stamina keeps restoring the same amount.
     int Apply(const Scale& scale, bool verbose);
+
+    // Scale the six blocked-hit costs. Finds them by the code that reads them,
+    // and if that code has changed it says so and leaves the game alone.
+    void ApplyGuard(int percent);
+
+    // Read the six back on a timer and put them back if something else has
+    // changed them. Does nothing when ApplyGuard wrote nothing.
+    void RecheckGuard(const char* when);
 
     // The research report. Independent of Apply and off by default. Returns
     // false while the named skill rows are not all in the table yet, so the

@@ -161,6 +161,7 @@ namespace sm::stamina
             { scale.continuous, "ContinuousPercent" },
             { scale.mount,      "MountPercent" },
             { scale.spirit,     "SpiritPercent" },
+            { scale.guard,      "GuardPercent" },
         };
         for (const auto& s : settings)
             if (s.v < 0 || s.v > 100)
@@ -180,8 +181,8 @@ namespace sm::stamina
         if (scale.oneOff == 100 && scale.continuous == 100 && scale.mount == 100 &&
             scale.mountRegen == 100 && scale.spirit == 100)
         {
-            LOG("[stamina] every setting is 100, so the game's own numbers stand and nothing is "
-                "written.");
+            LOG("[stamina] every skill table setting is 100, so the table keeps the game's own "
+                "numbers and nothing in it is written.");
             return 0;
         }
 
@@ -315,6 +316,97 @@ namespace sm::stamina
         if (!verbose)
             LOG("[stamina] Set Probe=1 in the ini for a line per skill changed.");
         return changed;
+    }
+
+    namespace
+    {
+        uintptr_t g_guardAt[kGuardCostTiers] = {};
+        int g_guardWant[kGuardCostTiers] = {};
+        bool g_guardWritten = false;
+
+        bool WriteInt(uintptr_t at, int v)
+        {
+            __try { *reinterpret_cast<volatile int*>(at) = v; return true; }
+            __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+        }
+    }
+
+    void ApplyGuard(int percent)
+    {
+        if (percent == 100)
+        {
+            LOG("[guard] GuardPercent is 100, so a blocked hit costs what the game charges.");
+            return;
+        }
+
+        size_t hits = 0;
+        const uintptr_t code = mem::FindUnique(kSig_GuardCostTiers, &hits);
+        if (!code)
+        {
+            LOG_ERR("[guard] the code that picks a blocked hit's cost matched %zu times instead of once, "
+                    "so this build has changed it. Blocked hits keep the game's cost and everything "
+                    "else in this mod still applies.", hits);
+            return;
+        }
+
+        const uintptr_t base = mem::Game().base;
+        const uintptr_t end = base + mem::Game().size;
+        int before[kGuardCostTiers] = {};
+        uintptr_t at[kGuardCostTiers] = {};
+        for (int i = 0; i < kGuardCostTiers; ++i)
+        {
+            uint32_t disp = 0, value = 0;
+            if (!mem::Read32(code + kOff_GuardCost_Disp[i], &disp))
+            {
+                LOG_ERR("[guard] could not read the address of cost %d. Blocked hits keep the game's cost.", i);
+                return;
+            }
+            at[i] = code + kOff_GuardCost_End[i] + static_cast<int32_t>(disp);
+            if (at[i] < base || at[i] + sizeof(int) > end || !mem::Read32(at[i], &value) ||
+                static_cast<int>(value) < 0 || static_cast<int>(value) > kGuardCost_MaxPlausible)
+            {
+                LOG_ERR("[guard] cost %d at 0x%p holds %d, which is not a stamina cost. Nothing is written "
+                        "and blocked hits keep the game's cost.", i, reinterpret_cast<void*>(at[i]),
+                        static_cast<int>(value));
+                return;
+            }
+            before[i] = static_cast<int>(value);
+        }
+
+        int failed = 0;
+        for (int i = 0; i < kGuardCostTiers; ++i)
+        {
+            const int want = static_cast<int>(static_cast<int64_t>(before[i]) * percent / 100);
+            uint32_t back = 0;
+            if (!WriteInt(at[i], want) || !mem::Read32(at[i], &back) || static_cast<int>(back) != want)
+                ++failed;
+            g_guardAt[i] = at[i];
+            g_guardWant[i] = want;
+        }
+        g_guardWritten = true;
+
+        LOG_OK("[guard] blocked hit costs at %d%%, light to heavy with the fallback last: "
+               "%d %d %d %d %d %d became %d %d %d %d %d %d.%s", percent,
+               before[0], before[1], before[2], before[3], before[4], before[5],
+               g_guardWant[0], g_guardWant[1], g_guardWant[2], g_guardWant[3], g_guardWant[4],
+               g_guardWant[5], failed ? " Some writes did not land." : "");
+    }
+
+    void RecheckGuard(const char* when)
+    {
+        if (!g_guardWritten) return;
+        int moved = 0;
+        for (int i = 0; i < kGuardCostTiers; ++i)
+        {
+            uint32_t now = 0;
+            if (!mem::Read32(g_guardAt[i], &now)) continue;
+            if (static_cast<int>(now) == g_guardWant[i]) continue;
+            LOG("[guard] %s cost %d held %d instead of %d, so something in the game wrote it. Putting "
+                "it back.", when, i, static_cast<int>(now), g_guardWant[i]);
+            WriteInt(g_guardAt[i], g_guardWant[i]);
+            ++moved;
+        }
+        if (!moved) LOG("[guard] %s all six blocked hit costs still hold.", when);
     }
 
     void Verify(const char* when)

@@ -31,6 +31,7 @@ All of them live in `StaminaMaster.ini`.
     MountPercent=0          things you do while mounted, 15
     MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
     SpiritPercent=100       Spirit costs, 100 leaves them alone
+    GuardPercent=0          what a blocked hit costs
     Probe=0                 write the research report to the log
 
 The first three are a percentage of the game's own cost. 100 leaves that kind
@@ -63,8 +64,11 @@ Sprinting, climbing, swimming, the glider, the rocket pack, rolls, jumps,
 weapon swings, grapples, bow shots, the war machine's weapons, and riding.
 With `SpiritPercent` below 100, Spirit costs as well.
 
-Blocking a hit is the one stamina loss it doesn't reach. The game charges a
-blocked hit outside the skill table, so a guard still drains at 0.
+`GuardPercent` is the cost of a blocked hit. The game charges that apart from
+every skill, from six settings picked by how hard the hit was, with defaults
+of 10, 30, 45, 90, 150 and 300 stamina. The plugin finds them by the code that
+reads them and scales them. At 0 blocking is free, and a guard no longer breaks
+from running out of stamina. At 100 the game keeps its own numbers.
 
 Combat is included because the game keeps no flag anywhere that separates
 travelling from fighting. Set `UsePercent` and `ContinuousPercent` to 100 if you

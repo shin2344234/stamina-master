@@ -68,6 +68,7 @@ namespace
         s.scale.mount      = static_cast<int>(ReadSetting(L"MountPercent", L"0"));
         s.scale.mountRegen = static_cast<int>(ReadSetting(L"MountRegenPercent", L"1000"));
         s.scale.spirit     = static_cast<int>(ReadSetting(L"SpiritPercent", L"100"));
+        s.scale.guard      = static_cast<int>(ReadSetting(L"GuardPercent", L"0"));
         s.probe            = ReadSetting(L"Probe", L"0") != 0.0f;
         return s;
     }
@@ -78,9 +79,9 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.04.08 (exe 1.0.0.3576). UsePercent=%d ContinuousPercent=%d "
-            "MountPercent=%d MountRegenPercent=%d SpiritPercent=%d Probe=%d", SM_NAME, SM_VERSION,
-            s.scale.oneOff, s.scale.continuous, s.scale.mount, s.scale.mountRegen, s.scale.spirit,
-            s.probe ? 1 : 0);
+            "MountPercent=%d MountRegenPercent=%d SpiritPercent=%d GuardPercent=%d Probe=%d", SM_NAME,
+            SM_VERSION, s.scale.oneOff, s.scale.continuous, s.scale.mount, s.scale.mountRegen,
+            s.scale.spirit, s.scale.guard, s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(sm::mem::Game().base), sm::mem::Game().size);
 
@@ -89,7 +90,7 @@ namespace
         // for a load; past that something has changed and saying so beats
         // polling in silence for the rest of the session.
         int waited = 0;
-        bool probed = !s.probe, applied = false;
+        bool probed = !s.probe, applied = false, guardDone = false;
         while (!g_stop.load())
         {
             // Before Apply, so the survey reports the game's own amounts
@@ -109,6 +110,13 @@ namespace
                                          s.scale.spirit == 100;
                 const int n = sm::stamina::Apply(s.scale, s.probe);
                 applied = n != 0 || nothingToDo;
+                // After the table write and only if that was not refused, so a
+                // value out of range still means nothing is written at all.
+                if (applied && n >= 0 && !guardDone)
+                {
+                    sm::stamina::ApplyGuard(s.scale.guard);
+                    guardDone = true;
+                }
             }
             if (!(probed && applied) && ++waited == 120)
             {
@@ -128,14 +136,19 @@ namespace
         // that mattered when the setting was 0 and stamina still drained. It is
         // behind Probe because a session that is working has nothing to learn
         // from it, and a bug report has everything.
-        for (int minute = 1; s.probe && minute <= 2 && !g_stop.load(); ++minute)
+        //
+        // RecheckGuard is outside Probe. The blocked hit costs are named engine
+        // settings rather than table rows, and a game that reloads its settings
+        // would undo the write, so those two looks also put them back.
+        for (int minute = 1; minute <= 2 && !g_stop.load(); ++minute)
         {
             for (int i = 0; i < 120 && !g_stop.load(); ++i) Sleep(500);
             if (g_stop.load()) break;
             char when[32];
             _snprintf_s(when, _countof(when), _TRUNCATE, "after %d minute%s", minute,
                         minute == 1 ? "" : "s");
-            sm::stamina::Verify(when);
+            sm::stamina::RecheckGuard(when);
+            if (s.probe) sm::stamina::Verify(when);
         }
         // The fault count is here for whoever reads someone else's fault log and
         // finds this plugin named in it. Every pointer the table search considers

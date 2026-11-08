@@ -218,4 +218,25 @@ namespace sm::sig
         "Skill_GuardWait", "Skill_GuardSuccessRecovery", "Active_Guard_ResetStamina",
         "Active_GuardBreak",
     };
+
+    // --- What a blocked hit costs -------------------------------------------
+    // A blocked hit is charged in the hit resolver at 0x196F7D0 on exe
+    // 1.0.0.3576, outside the skill table. It picks one of six engine settings
+    // by the attack strength byte at +0x7B of the hit data, multiplies by 1000,
+    // cuts that by the GuardPVRate stat and subtracts it from Stamina. Each
+    // setting is an int at +0x38 of a named object built by a static
+    // constructor, with defaults of 10, 30, 45, 90, 150 and 300. The compare
+    // chain below is the only code that reads them. Its six rip-relative loads
+    // are what this finds, so the values come off the running exe and no
+    // address is carried between builds.
+    inline constexpr const char* kSig_GuardCostTiers =
+        "0F B6 48 7B 84 C9 75 08 8B 05 ?? ?? ?? ?? EB 37 80 F9 01 75 08 8B 05 ?? ?? ?? ?? EB 2A "
+        "80 F9 02 75 08 8B 05 ?? ?? ?? ?? EB 1D 80 F9 03 75 08 8B 05 ?? ?? ?? ?? EB 10 "
+        "8B 05 ?? ?? ?? ?? 80 F9 04 0F 44 05 ?? ?? ?? ?? 48 98 48 69 F8 E8 03 00 00";
+    inline constexpr int kGuardCostTiers = 6;
+    // Strength 0 to 4, then the fallback for anything above 4. Where each
+    // disp32 sits in the pattern, and where its instruction ends.
+    inline constexpr unsigned kOff_GuardCost_Disp[kGuardCostTiers] = { 10, 23, 36, 49, 67, 57 };
+    inline constexpr unsigned kOff_GuardCost_End[kGuardCostTiers]  = { 14, 27, 40, 53, 71, 61 };
+    inline constexpr int kGuardCost_MaxPlausible = 100000;
 }
