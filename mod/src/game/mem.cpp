@@ -3,6 +3,8 @@
 #include <cstring>
 #include <vector>
 
+#include "core/log.h"
+
 namespace sm::mem
 {
     // ------------------------------------------------------------ module ----
@@ -56,9 +58,141 @@ namespace sm::mem
             EnterCriticalSection(&g_regCs);
         }
         void RegUnlock() { LeaveCriticalSection(&g_regCs); }
+
+        // Readable by a plain load. Committed with NOACCESS or GUARD is not,
+        // and neither is PAGE_EXECUTE on its own, which Readable let through
+        // until 1.0.8 because it only ruled out the first two.
+        bool ProtectReadable(DWORD protect)
+        {
+            if (protect & (PAGE_GUARD | PAGE_NOACCESS)) return false;
+            return (protect & (PAGE_READONLY | PAGE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_READ |
+                               PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
+        }
+
+        // ------------------------------------------------------- faults ----
+        // Every caught fault is counted against the code that was reading,
+        // which a FaultSite names for its scope. 1.0.8 kept one total, and
+        // 2,095 in a session could not be traced to anything from the log.
+        thread_local const char* t_site = nullptr;
+
+        struct SiteStat
+        {
+            const char* name;
+            long count;
+            uintptr_t first, last;
+            DWORD lastDump;
+            long dumped, skipped;
+        };
+        constexpr int kMaxSites = 24;
+        SiteStat g_site[kMaxSites];
+        int      g_siteN = 0;
+        long     g_siteOverflow = 0;
+        SRWLOCK  g_siteLock = SRWLOCK_INIT;
+        constexpr DWORD kDumpEveryMs = 500;
+
+        const char* StateName(DWORD s)
+        {
+            return s == MEM_COMMIT ? "commit" : s == MEM_RESERVE ? "reserve" : s == MEM_FREE ? "free" : "?";
+        }
     }
 
+    FaultSite::FaultSite(const char* name) : prev_(t_site) { t_site = name; }
+    FaultSite::~FaultSite() { t_site = prev_; }
+
     long FaultCount() { return g_faults; }
+
+    // Called from the __except blocks. A fault means the region cache said
+    // the page was readable and it was not, which happens when a heap region
+    // the cache saw committed is released inside the five seconds the answer
+    // is kept. The entry is dropped here so the rest of that region is asked
+    // about again, instead of every candidate in it faulting in turn.
+    static void NoteFault(uintptr_t a)
+    {
+        InterlockedIncrement(&g_faults);
+
+        bool cached = false, cachedOk = false;
+        uintptr_t cBase = 0, cEnd = 0;
+        DWORD cAge = 0;
+        const DWORD now = GetTickCount();
+        RegLock();
+        for (int i = 0; i < g_regN; ++i)
+        {
+            if (a < g_regs[i].base || a >= g_regs[i].end) continue;
+            if (!cached)
+            {
+                cached = true;
+                cachedOk = g_regs[i].ok;
+                cBase = g_regs[i].base;
+                cEnd = g_regs[i].end;
+                cAge = now - g_regs[i].when;
+            }
+            g_regs[i].when = now - 10000;   // stale, so the next ask queries
+        }
+        RegUnlock();
+
+        const char* site = t_site ? t_site : "untagged";
+        bool dump = false;
+        long count = 0, skipped = 0;
+        AcquireSRWLockExclusive(&g_siteLock);
+        SiteStat* s = nullptr;
+        for (int i = 0; i < g_siteN; ++i)
+            if (g_site[i].name == site || strcmp(g_site[i].name, site) == 0) { s = &g_site[i]; break; }
+        if (!s && g_siteN < kMaxSites)
+        {
+            s = &g_site[g_siteN++];
+            *s = SiteStat{ site, 0, a, a, 0, 0, 0 };
+        }
+        if (s)
+        {
+            ++s->count;
+            s->last = a;
+            dump = s->count == 1 || now - s->lastDump >= kDumpEveryMs;
+            if (dump) { s->lastDump = now; ++s->dumped; skipped = s->skipped; }
+            else ++s->skipped;
+            count = s->count;
+        }
+        else
+            ++g_siteOverflow;
+        ReleaseSRWLockExclusive(&g_siteLock);
+        if (!dump) return;
+
+        // What the page map says now, against what the cache said. One of
+        // these per site per half second, so the VirtualQuery is affordable.
+        MEMORY_BASIC_INFORMATION mbi{};
+        const bool q = VirtualQuery(reinterpret_cast<LPCVOID>(a), &mbi, sizeof mbi) == sizeof mbi;
+        LOG("[fault] %s: read at 0x%p faulted, %ld from here so far (%ld not dumped by the %lu ms limit "
+            "before this one). Page map now: %s protect 0x%lX region 0x%p+0x%zX. Cache: %s",
+            site, reinterpret_cast<void*>(a), count, skipped, kDumpEveryMs,
+            q ? StateName(mbi.State) : "query failed", q ? mbi.Protect : 0,
+            q ? mbi.BaseAddress : nullptr, q ? mbi.RegionSize : 0,
+            !cached ? "no entry" : cachedOk ? "said readable" : "said not readable");
+        if (cached)
+            LOG("[fault] %s: the cached region was 0x%p..0x%p, %lu ms old", site,
+                reinterpret_cast<void*>(cBase), reinterpret_cast<void*>(cEnd), cAge);
+    }
+
+    void LogFaultBreakdown()
+    {
+        AcquireSRWLockShared(&g_siteLock);
+        if (!g_siteN)
+            LOG("[fault] no guarded read faulted this session");
+        long dumped = 0, skipped = 0;
+        for (int i = 0; i < g_siteN; ++i)
+        {
+            const SiteStat& s = g_site[i];
+            LOG("[fault] %-16s %6ld faulted, first at 0x%p, last at 0x%p, %ld dumped, %ld skipped by the "
+                "%lu ms limit", s.name, s.count, reinterpret_cast<void*>(s.first),
+                reinterpret_cast<void*>(s.last), s.dumped, s.skipped, kDumpEveryMs);
+            dumped += s.dumped;
+            skipped += s.skipped;
+        }
+        if (g_siteN)
+            LOG("[fault] %ld dump lines written and %ld skipped by the per-site limit", dumped, skipped);
+        if (g_siteOverflow)
+            LOG_ERR("[fault] %ld faults came from sites past the first %d and are in the total only",
+                    g_siteOverflow, kMaxSites);
+        ReleaseSRWLockShared(&g_siteLock);
+    }
 
     bool Readable(uintptr_t a, size_t n)
     {
@@ -85,7 +219,7 @@ namespace sm::mem
         RegUnlock();
         MEMORY_BASIC_INFORMATION mbi;
         if (!VirtualQuery(reinterpret_cast<LPCVOID>(a), &mbi, sizeof mbi)) return false;
-        const bool ok = mbi.State == MEM_COMMIT && !(mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD));
+        const bool ok = mbi.State == MEM_COMMIT && ProtectReadable(mbi.Protect);
         const uintptr_t base = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
         const uintptr_t end  = base + mbi.RegionSize;
         RegLock();
@@ -122,25 +256,25 @@ namespace sm::mem
     {
         if (!Plausible(a)) return false;
         __try { *out = *reinterpret_cast<volatile uint8_t*>(a); return true; }
-        __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&g_faults); return false; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { NoteFault(a); return false; }
     }
     bool Read16(uintptr_t a, uint16_t* out)
     {
         if (!Plausible(a)) return false;
         __try { *out = *reinterpret_cast<volatile uint16_t*>(a); return true; }
-        __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&g_faults); return false; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { NoteFault(a); return false; }
     }
     bool Read32(uintptr_t a, uint32_t* out)
     {
         if (!Plausible(a)) return false;
         __try { *out = *reinterpret_cast<volatile uint32_t*>(a); return true; }
-        __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&g_faults); return false; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { NoteFault(a); return false; }
     }
     bool Read64(uintptr_t a, uint64_t* out)
     {
         if (!Plausible(a)) return false;
         __try { *out = *reinterpret_cast<volatile uint64_t*>(a); return true; }
-        __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&g_faults); return false; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { NoteFault(a); return false; }
     }
     bool ReadPtr(uintptr_t a, uintptr_t* out)
     {
@@ -159,13 +293,13 @@ namespace sm::mem
             out[2] = *reinterpret_cast<volatile float*>(a + 8);
             return true;
         }
-        __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&g_faults); return false; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { NoteFault(a); return false; }
     }
     bool ReadBytes(uintptr_t a, void* out, size_t n)
     {
         if (!Plausible(a)) return false;
         __try { memcpy(out, reinterpret_cast<const void*>(a), n); return true; }
-        __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&g_faults); return false; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { NoteFault(a); return false; }
     }
     bool ReadCString(uintptr_t a, char* out, size_t n)
     {
@@ -183,7 +317,7 @@ namespace sm::mem
             out[i] = 0;
             return i > 0;
         }
-        __except (EXCEPTION_EXECUTE_HANDLER) { InterlockedIncrement(&g_faults); return false; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { NoteFault(a); return false; }
     }
     bool ReadEngineString(uintptr_t slot, char* out, size_t n)
     {
@@ -372,6 +506,7 @@ namespace sm::mem
     {
         const Module& m = Game();
         if (!m.base) return 0;
+        FaultSite site("rtti vtables");
         const size_t nlen = strlen(name) + 1;
         // TypeDescriptor: the decorated name lives at td+0x10.
         uintptr_t td = 0;
@@ -418,6 +553,7 @@ namespace sm::mem
     {
         const Module& m = Game();
         if (!m.base || n <= 0) return 0;
+        FaultSite site("rtti scan");
         const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(m.base);
         const auto* nt  = reinterpret_cast<const IMAGE_NT_HEADERS64*>(m.base + dos->e_lfanew);
         const IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);

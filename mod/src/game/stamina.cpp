@@ -13,13 +13,21 @@ using sm::tables::Table;
 
 namespace
 {
-    struct Slot { Table byName, byRtti; bool told = false; };
+    struct Slot
+    {
+        Table byName, byRtti;
+        bool told = false;
+        int  nameMisses = 0;     // passes on which no getter named the table
+        int  rowWaits = 0;       // passes with the getter's global but no rows yet
+        bool toldWait = false, toldFallback = false;
+    };
     Slot g_statusSlot, g_skillSlot;
 
     // Says once per table which route opened it. statusinfo by its resolver
     // means kSig_TableResolver16 still fits this build; by its manager means
     // the pattern missed and the RTTI fallback covered for it, which works but
-    // is the first sign of a patch.
+    // is the first sign of a patch. On 3663 skill opens by its resolver too;
+    // before that build only its manager could reach it.
     void Announce(const char* label, Slot& s, const Table& t)
     {
         if (s.told) return;
@@ -30,19 +38,66 @@ namespace
             t.rowEntries ? "row entries" : "defs", t.defsOff);
     }
 
+    // How many one-second passes to wait on a getter whose table has no rows
+    // yet before trying the RTTI route as well. The slowest 3663 load seen took
+    // 33 seconds to fill the tables, and the worker gives up at 120.
+    constexpr int kRowWaitsBeforeRtti = 60;
+    // Passes after which a name no getter answers to stops being searched for.
+    // Before 3663 nothing names skill, and the full-image pattern search is
+    // not worth repeating every second for the whole wait.
+    constexpr int kNameMissesBeforeGivingUp = 3;
+
+    // The getter is the normal route for both tables on 3663. It reads the
+    // table's own global, which is a handful of reads, where the RTTI route
+    // scans 8.4 MB of .sxdata and asks the page map about every value in it
+    // that looks like a pointer. That scan is where 1.0.8's faults came from,
+    // so it runs only when no getter names the table, or one has named it and
+    // the rows have stayed empty for a minute.
     bool Open(const char* label, const char* name, const char* rtti, Slot& s, Table& out)
     {
-        if (name && sm::tables::Resolve(name, s.byName)) out = s.byName;
-        else if (rtti && sm::tables::ResolveByManager(rtti, s.byRtti)) out = s.byRtti;
-        else return false;
-        Announce(label, s, out);
-        return true;
+        if (name && s.nameMisses < kNameMissesBeforeGivingUp)
+        {
+            if (sm::tables::Resolve(name, s.byName))
+            {
+                out = s.byName;
+                Announce(label, s, out);
+                return true;
+            }
+            // A miss counts only once statusinfo has been found by name, which
+            // shows the code is unpacked and the search works; a miss before
+            // that says nothing about whether this table has a getter.
+            if (!s.byName.global) { if (&s != &g_statusSlot && g_statusSlot.byName.global) ++s.nameMisses; }
+            else if (++s.rowWaits < kRowWaitsBeforeRtti)
+            {
+                if (!s.toldWait)
+                {
+                    s.toldWait = true;
+                    LOG("[table] %s: its getter names global +0x%llX, and the table is not built yet; "
+                        "waiting on it", label, static_cast<unsigned long long>(sm::mem::Rva(s.byName.global)));
+                }
+                return false;
+            }
+            else if (!s.toldFallback)
+            {
+                s.toldFallback = true;
+                LOG_ERR("[table] %s: the getter's global +0x%llX has held no readable rows for %d passes, "
+                        "so the manager's RTTI is tried as well", label,
+                        static_cast<unsigned long long>(sm::mem::Rva(s.byName.global)), s.rowWaits);
+            }
+        }
+        if (rtti && sm::tables::ResolveByManager(rtti, s.byRtti))
+        {
+            out = s.byRtti;
+            Announce(label, s, out);
+            return true;
+        }
+        return false;
     }
 
     bool OpenBoth(Table& status, Table& skill)
     {
         return Open("statusinfo", kStr_StatusTable, kRtti_StatusManager, g_statusSlot, status) &&
-               Open("skill", nullptr, kRtti_SkillManager, g_skillSlot, skill);
+               Open("skill", kStr_SkillTable, kRtti_SkillManager, g_skillSlot, skill);
     }
 
     // {items, size, capacity}, as the reader at RVA 0x017A1810 writes it on 3663.

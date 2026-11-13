@@ -28,6 +28,22 @@ namespace sm::mem
     // the RTTI structure because those bytes decoded as instructions.
     bool Executable(uintptr_t p, size_t n);
     long FaultCount();
+    // Names the code doing the reading for as long as it is in scope, so a
+    // caught fault is counted against it. Nests; the inner name wins. The
+    // name must outlive the session, so pass a literal.
+    class FaultSite
+    {
+    public:
+        explicit FaultSite(const char* name);
+        ~FaultSite();
+        FaultSite(const FaultSite&) = delete;
+        FaultSite& operator=(const FaultSite&) = delete;
+    private:
+        const char* prev_;
+    };
+    // One line per site: how many, the first and last address, and how many
+    // dump lines the 500 ms limit held back.
+    void LogFaultBreakdown();
 
     bool Read8 (uintptr_t a, uint8_t*  out);
     bool Read16(uintptr_t a, uint16_t* out);

@@ -98,6 +98,7 @@ namespace
             // reason.
             if (!probed)
             {
+                sm::mem::FaultSite site("probe");
                 probed = sm::stamina::Probe(waited == 119);
                 if (probed) sm::stamina::SurveyCategories();
             }
@@ -108,6 +109,7 @@ namespace
                 const bool nothingToDo = s.scale.oneOff == 100 && s.scale.continuous == 100 &&
                                          s.scale.mount == 100 && s.scale.mountRegen == 100 &&
                                          s.scale.spirit == 100;
+                sm::mem::FaultSite site("apply");
                 const int n = sm::stamina::Apply(s.scale, s.probe);
                 applied = n != 0 || nothingToDo;
                 // After the table write and only if that was not refused, so a
@@ -147,18 +149,28 @@ namespace
             char when[32];
             _snprintf_s(when, _countof(when), _TRUNCATE, "after %d minute%s", minute,
                         minute == 1 ? "" : "s");
-            sm::stamina::RecheckGuard(when);
-            if (s.probe) sm::stamina::Verify(when);
+            {
+                sm::mem::FaultSite site("guard recheck");
+                sm::stamina::RecheckGuard(when);
+            }
+            if (s.probe)
+            {
+                sm::mem::FaultSite site("verify");
+                sm::stamina::Verify(when);
+            }
         }
         // The fault count is here for whoever reads someone else's fault log and
-        // finds this plugin named in it. Every pointer the table search considers
-        // is range-checked and then read under a handler, so an address that is
-        // in range but not mapped faults on purpose, is caught, and the search
-        // carries on. Thousands of those in a session is the normal shape.
+        // finds this plugin named in it. Every read is range-checked and done
+        // under a handler, so one that lands on an unmapped page is caught and
+        // counted. 1.0.8 reached 2,095 in a session, nearly all from the RTTI
+        // scan, whose page-map cache went stale while the game loaded. Both
+        // tables open through their getters on 3663 now and the scan does not
+        // run, so a session there should log none or close to it. The lines
+        // after this one say which code each fault came from.
         const long faults = sm::mem::FaultCount();
-        LOG("[mod] worker stopped. %ld guarded read%s faulted and %s caught, which is the pointer "
-            "probe working rather than a near miss.", faults, faults == 1 ? "" : "s",
-            faults == 1 ? "was" : "were");
+        LOG("[mod] worker stopped. %ld guarded read%s faulted and %s caught.", faults,
+            faults == 1 ? "" : "s", faults == 1 ? "was" : "were");
+        sm::mem::LogFaultBreakdown();
         return 0;
     }
 }

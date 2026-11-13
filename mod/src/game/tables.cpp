@@ -27,8 +27,11 @@ namespace
     }
 
     // The 3663 form. The getter holds the global but not the name; the name is
-    // in the slow-path loader it calls, so follow that call and look for the
-    // lea there.
+    // in the slow-path loader it calls, so follow that call and take the first
+    // load into r8 there. Most loaders lea the name. Eighteen, skill's among
+    // them, load it through a pointer instead (`mov r8,[rip+x]`, and x holds
+    // the address of "Skill"), which is why skill was reachable only through
+    // the RTTI scan until this read both forms.
     bool GetterVisit(uintptr_t hit, void* ctx)
     {
         auto* h = static_cast<TableHunt*>(ctx);
@@ -39,13 +42,24 @@ namespace
             if (!sm::mem::InImage(slow)) return false;
             for (uintptr_t q = slow; q < slow + kMax_SlowPathToLea; ++q)
             {
-                if (!sm::mem::MatchAt(q, kSig_LeaR8Rip)) continue;
+                uintptr_t str = 0;
+                if (sm::mem::MatchAt(q, kSig_LeaR8Rip))
+                    str = sm::mem::RipAt(q, 7);
+                else if (sm::mem::MatchAt(q, kSig_MovR8Rip))
+                {
+                    const uintptr_t cell = sm::mem::RipAt(q, 7);
+                    if (!sm::mem::InImage(cell) || !sm::mem::ReadPtr(cell, &str) || !sm::mem::InImage(str))
+                        return false;
+                }
+                else
+                    continue;
                 char buf[48];
-                if (sm::mem::ReadCString(sm::mem::RipAt(q, 7), buf, sizeof buf) && strcmp(buf, h->name) == 0)
+                if (sm::mem::ReadCString(str, buf, sizeof buf) && strcmp(buf, h->name) == 0)
                 {
                     h->fn = hit;
                     return true;
                 }
+                return false;
             }
             return false;
         }
@@ -54,6 +68,7 @@ namespace
 
     uintptr_t GlobalFor(const char* name)
     {
+        sm::mem::FaultSite site("getter search");
         TableHunt h{ name, 0 };
         sm::mem::FindIf(kSig_TableGetter, GetterVisit, &h);
         if (h.fn)
@@ -88,6 +103,7 @@ namespace
     bool Finish(sm::tables::Table& out)
     {
         if (!out.object) return false;
+        sm::mem::FaultSite site(out.viaRtti ? "rtti layout" : "getter layout");
 
         uint32_t rows = 0;
         if (sm::mem::Read32(out.object + kOff_Table_RowCount, &rows) && rows && rows <= 0x40000)
@@ -119,6 +135,7 @@ namespace sm::tables
 {
     bool Resolve(const char* name, Table& out)
     {
+        mem::FaultSite site("getter route");
         const uintptr_t global = out.global ? out.global : GlobalFor(name);
         out = Table{};
         out.global = global;
@@ -129,6 +146,7 @@ namespace sm::tables
 
     bool ResolveByManager(const char* decoratedName, Table& out)
     {
+        mem::FaultSite site("rtti route");
         // The vtable set does not move, so it is found once and kept. The
         // global holding the manager can be null for the first seconds of a
         // session, which is the case worth retrying.

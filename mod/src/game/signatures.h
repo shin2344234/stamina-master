@@ -55,6 +55,7 @@ namespace sm::sig
     // route below is for. Do not read a GlobalFor failure on skill as the table
     // not being loaded yet.
     inline constexpr const char* kSig_LeaR8Rip = "4C 8D 05 ?? ?? ?? ??";
+    inline constexpr const char* kSig_MovR8Rip = "4C 8B 05 ?? ?? ?? ??"; // mov r8,[rip+x]
     inline constexpr const char* kSig_TableResolver16 =
         "?? ?? ?? 49 89 5B 08 49 89 6B 18 56 57 41 56 48 83 EC ?? ?? ?? 48 8B 1D";
     inline constexpr unsigned kOff_TableResolver_MovGlobal = 0x15; // `mov rbx, cs:<table global>`
@@ -102,6 +103,11 @@ namespace sm::sig
     inline constexpr unsigned kMax_RowsToValidate  = 64;
 
     inline constexpr const char* kStr_StatusTable = "statusinfo";
+    // skill's getter is +3DA9E0 on 3663 and its loader names it "Skill",
+    // capitalised, through a pointer. Its global is +72463D0, the one the RTTI
+    // scan had been finding. No resolver clone named it on earlier builds, so
+    // there the RTTI route is still the one that answers.
+    inline constexpr const char* kStr_SkillTable  = "Skill";
 
     // The RTTI route, for tables with no resolver clone. Every static table has
     // a manager class, 150 of them named *InfoManager@pa@@ in the image.
