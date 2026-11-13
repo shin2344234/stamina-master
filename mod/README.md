@@ -1,7 +1,11 @@
-# Stamina Master 1.0.7
+# Stamina Master 1.0.8
 
-For Crimson Desert 2.04.08, exe 1.0.0.3576. The DLC moved the table layouts it
-reads, so 2.03.02 and older need 1.0.3.
+For Crimson Desert 2.05.00, exe 1.0.0.3663, and it still runs on 2.04.08. The
+DLC moved the table layouts it reads, so 2.03.02 and older need 1.0.3.
+
+New in 1.0.8: the 13 November game update rebuilt the container the game's
+data tables sit in, and 1.0.7 changed nothing on it. This version reads the new
+one. `GuardPercent` is new too and sets what a blocked hit costs.
 
 Out of the box nothing you do on foot costs stamina, and a horse recovers at a
 gallop about as fast as it does standing still. Every number is a setting, so
@@ -82,7 +86,8 @@ minutes in that confirms the changes are still there. That log is the useful
 thing to attach to a bug report.
 
 The last line of that log counts the reads that faulted and were caught while
-the plugin looked for the skill table. A few dozen at most is normal.
+the plugin looked for the skill table. Anything from a few dozen to a couple
+of thousand is normal.
 Candidate pointers are checked against a map of mapped memory first, and the
 few that still fault are ones where the memory changed in between. A count in
 the hundreds of thousands is worth reporting. If a crash reporter or another

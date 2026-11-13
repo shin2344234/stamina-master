@@ -1,7 +1,12 @@
 # Stamina Master
 
-A stamina plugin for Crimson Desert 2.04.08, exe 1.0.0.3576. The DLC moved the
-table layouts it reads, so 2.03.02 and older need 1.0.3.
+A stamina plugin for Crimson Desert 2.05.00, exe 1.0.0.3663. It still runs on
+2.04.08. The DLC moved the table layouts it reads, so 2.03.02 and older need
+1.0.3.
+
+1.0.8 follows the 13 November game update, which rebuilt the container every
+game data table sits in, so 1.0.7 found no tables and changed nothing. It also
+adds `GuardPercent`, which sets what a blocked hit costs.
 
 It multiplies the stamina cost of what you do, so sprinting, climbing,
 swimming, gliding and riding cost a fraction of what the game charges, and
@@ -130,7 +135,8 @@ for the moment that happens. A table still short of that after two minutes
 leaves stamina as the game has it, and the log says so.
 
 Its last line counts the reads that faulted and were caught while the plugin
-looked for the skill table. A few dozen at most is normal.
+looked for the skill table. Anything from a few dozen to a couple of thousand
+is normal.
 Candidate pointers are checked against a map of mapped memory before they are
 read, and the few that still fault are ones where the memory changed between
 the check and the read. A count in the hundreds of thousands means that map is
