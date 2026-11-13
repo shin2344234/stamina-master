@@ -26,44 +26,92 @@ namespace
         return false;
     }
 
+    // The 3663 form. The getter holds the global but not the name; the name is
+    // in the slow-path loader it calls, so follow that call and look for the
+    // lea there.
+    bool GetterVisit(uintptr_t hit, void* ctx)
+    {
+        auto* h = static_cast<TableHunt*>(ctx);
+        for (uintptr_t p = hit + 0x10; p < hit + kMax_GetterToSlowCall; ++p)
+        {
+            if (!sm::mem::MatchAt(p, kSig_GetterSlowCall)) continue;
+            const uintptr_t slow = sm::mem::RipAt(p + 5, 5);
+            if (!sm::mem::InImage(slow)) return false;
+            for (uintptr_t q = slow; q < slow + kMax_SlowPathToLea; ++q)
+            {
+                if (!sm::mem::MatchAt(q, kSig_LeaR8Rip)) continue;
+                char buf[48];
+                if (sm::mem::ReadCString(sm::mem::RipAt(q, 7), buf, sizeof buf) && strcmp(buf, h->name) == 0)
+                {
+                    h->fn = hit;
+                    return true;
+                }
+            }
+            return false;
+        }
+        return false;
+    }
+
     uintptr_t GlobalFor(const char* name)
     {
         TableHunt h{ name, 0 };
+        sm::mem::FindIf(kSig_TableGetter, GetterVisit, &h);
+        if (h.fn)
+        {
+            const uintptr_t g = sm::mem::RipAt(h.fn + kOff_TableGetter_MovGlobal, 7);
+            return sm::mem::InImage(g) ? g : 0;
+        }
         sm::mem::FindIf(kSig_LeaR8Rip, TableVisit, &h);
         if (!h.fn) return 0;
         const uintptr_t g = sm::mem::RipAt(h.fn + kOff_TableResolver_MovGlobal, 7);
         return sm::mem::InImage(g) ? g : 0;
     }
 
-    // A def offset is only usable if it yields string keys. Try both known
-    // positions of the def array and keep the one that reads.
-    bool PickDefsOffset(sm::tables::Table& t)
+    // A layout is only usable if it yields string keys. Rows the game has not
+    // built yet read as null defs and are skipped, which is why the sample is
+    // wider than the two keys it needs.
+    bool KeysRead(const sm::tables::Table& t)
     {
-        const unsigned tryOffs[2] = { kOff_Table_DefsA, kOff_Table_DefsB };
-        for (unsigned o : tryOffs)
+        int good = 0;
+        for (uint32_t r = 0; r < t.rows && r < kMax_RowsToValidate; ++r)
         {
-            t.defsOff = o;
-            int good = 0;
-            for (uint32_t r = 0; r < t.rows && r < 8; ++r)
-            {
-                const uintptr_t def = sm::tables::Def(t, r);
-                char key[64];
-                if (def && sm::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
-                    ++good;
-            }
-            if (good >= 2) return true;
+            const uintptr_t def = sm::tables::Def(t, r);
+            char key[64];
+            if (def && sm::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
+                if (++good >= 2) return true;
         }
-        t.defsOff = 0;
         return false;
     }
 
     // Row count and def array, given the table object. Shared by both routes.
+    // The 3663 container first, then the two older def array positions.
     bool Finish(sm::tables::Table& out)
     {
         if (!out.object) return false;
-        if (!sm::mem::Read32(out.object + kOff_Table_Count, &out.rows) || !out.rows || out.rows > 0x40000)
+
+        uint32_t rows = 0;
+        if (sm::mem::Read32(out.object + kOff_Table_RowCount, &rows) && rows && rows <= 0x40000)
+        {
+            out.rows = rows;
+            out.rowEntries = true;
+            out.defsOff = kOff_Table_Rows;
+            if (KeysRead(out)) return true;
+        }
+        out.rowEntries = false;
+        out.defsOff = 0;
+        out.rows = 0;
+
+        if (!sm::mem::Read32(out.object + kOff_Table_Count, &rows) || !rows || rows > 0x40000)
             return false;
-        return PickDefsOffset(out);
+        out.rows = rows;
+        const unsigned tryOffs[2] = { kOff_Table_DefsA, kOff_Table_DefsB };
+        for (unsigned o : tryOffs)
+        {
+            out.defsOff = o;
+            if (KeysRead(out)) return true;
+        }
+        out.defsOff = 0;
+        return false;
     }
 }
 
@@ -106,7 +154,10 @@ namespace sm::tables
         uintptr_t defs = 0, def = 0;
         if (!t.object || row >= t.rows || !t.defsOff) return 0;
         if (!mem::ReadPtr(t.object + t.defsOff, &defs)) return 0;
-        if (!mem::ReadPtr(defs + 8ull * row, &def)) return 0;
+        const uintptr_t slot = t.rowEntries
+            ? defs + uint64_t(kRec_TableRowBytes) * row + kOff_TableRow_Def
+            : defs + 8ull * row;
+        if (!mem::ReadPtr(slot, &def)) return 0;
         return def;
     }
 

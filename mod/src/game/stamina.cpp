@@ -24,9 +24,10 @@ namespace
     {
         if (s.told) return;
         s.told = true;
-        LOG("[table] %s opened by its %s: global +0x%llX, %u rows, defs at +0x%X", label,
+        LOG("[table] %s opened by its %s: global +0x%llX, %u rows, %s at +0x%X", label,
             t.viaRtti ? "manager's RTTI" : "resolver",
-            static_cast<unsigned long long>(sm::mem::Rva(t.global)), t.rows, t.defsOff);
+            static_cast<unsigned long long>(sm::mem::Rva(t.global)), t.rows,
+            t.rowEntries ? "row entries" : "defs", t.defsOff);
     }
 
     bool Open(const char* label, const char* name, const char* rtti, Slot& s, Table& out)
@@ -44,7 +45,7 @@ namespace
                Open("skill", nullptr, kRtti_SkillManager, g_skillSlot, skill);
     }
 
-    // {items, size, capacity}, as the reader at RVA 0x01730D30 writes it.
+    // {items, size, capacity}, as the reader at RVA 0x017A1810 writes it on 3663.
     struct List
     {
         uintptr_t items = 0;

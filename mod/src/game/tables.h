@@ -21,7 +21,8 @@ namespace sm::tables
         uintptr_t global = 0;   // address of the pointer the resolver loads
         uintptr_t object = 0;   // the table itself
         uint32_t  rows   = 0;
-        unsigned  defsOff = 0;  // whichever of DefsA / DefsB produced string keys
+        unsigned  defsOff = 0;  // whichever of DefsA / DefsB / Rows produced string keys
+        bool      rowEntries = false; // the 3663 container: 0x18-byte rows, def at +8
         bool      viaRtti = false;
     };
 

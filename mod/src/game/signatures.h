@@ -21,6 +21,14 @@
 // statusinfo in the 3424 packs are byte-identical to 3392's. Every value below
 // fits both builds.
 //
+// Exe 1.0.0.3663 (0.paver 2.05.00) replaced the table container and the
+// resolver template; see kSig_TableGetter and kOff_Table_Rows below. Every
+// record offset, the UseResourceStat record and the guard pattern held. The
+// list reader is the same bytes at 0x017A1810, the guard code is at 0x19D566F,
+// statusinfo has 90 rows with its global at 0x72463C8, and skill has 2,160.
+// Three AI rows went in ahead of Stamina, so on this build an entry's rate
+// rows read 44 and 46 where the notes below say 41 and 43.
+//
 // Exe 1.0.0.3446 (Steam build 26329202, 0.paver 2.04.02) changed none of it
 // either. 130 resolver hits, statusinfo's global at 0x71B2A18, both vtables,
 // the same three loader dumps, and the list reader the same bytes at
@@ -52,6 +60,22 @@ namespace sm::sig
     inline constexpr unsigned kOff_TableResolver_MovGlobal = 0x15; // `mov rbx, cs:<table global>`
     inline constexpr unsigned kMax_LeaToPrologue = 0x180;
 
+    // Exe 1.0.0.3663 (0.paver 2.05.00) replaced that template and the table
+    // container behind it. The old pattern hits 0 times there and this one
+    // hits 120 times (0 on 3576): `sub rsp,0x28; movzx r8d,word [rcx]; mov
+    // rcx,[rip+global]; cmp r8d,[rcx+0x28]; jb`. The key now comes in by
+    // pointer, and the table name is no longer inside the resolver. It sits in
+    // a slow-path loader the resolver calls when a row's def is still null,
+    // after `lea rdx,[rsp+0x30]`: at +0x3F in 118 clones and +0x3D in two.
+    // statusinfo's resolver is +3DAA60, its loader +3E0870 with the "statusinfo"
+    // lea at +0x34, and its global +72463C8.
+    inline constexpr const char* kSig_TableGetter =
+        "48 83 EC 28 44 0F B7 01 48 8B 0D ?? ?? ?? ?? 44 3B 41 28 72";
+    inline constexpr unsigned kOff_TableGetter_MovGlobal = 0x08; // `mov rcx, cs:<table global>`
+    inline constexpr const char* kSig_GetterSlowCall = "48 8D 54 24 30 E8";
+    inline constexpr unsigned kMax_GetterToSlowCall = 0x60;
+    inline constexpr unsigned kMax_SlowPathToLea    = 0x100;
+
     // Table object: u32 row count at +0x08, def[] pointer at +0x50 or +0x58
     // depending on build. Both are tried and whichever yields readable string
     // keys wins. A def's _stringKey is an engine string at +0x00 on 3392; it
@@ -62,6 +86,20 @@ namespace sm::sig
     inline constexpr unsigned kOff_Table_DefsA   = 0x58;
     inline constexpr unsigned kOff_Table_DefsB   = 0x50;
     inline constexpr unsigned kOff_Def_StringKey = 0x00;
+
+    // The 3663 container. The base table constructor (+E188A10) now stores
+    // the table's name at +0x08, where the row count used to be, and the
+    // object ends at +0x70 instead of +0xA0. Rows are an array of 0x18-byte
+    // entries at [+0x20] with the u32 count at +0x28, and each entry holds its
+    // def pointer at +0x08. A null def is a row the game has not built yet,
+    // as it was in the old layout. Both layouts are tried; the string-key test
+    // decides, and the old count at +0x08 now reads the low half of a pointer
+    // and fails the row-count check.
+    inline constexpr unsigned kOff_Table_Rows      = 0x20; // pointer to the entry array
+    inline constexpr unsigned kOff_Table_RowCount  = 0x28; // u32
+    inline constexpr unsigned kRec_TableRowBytes   = 0x18;
+    inline constexpr unsigned kOff_TableRow_Def    = 0x08;
+    inline constexpr unsigned kMax_RowsToValidate  = 64;
 
     inline constexpr const char* kStr_StatusTable = "statusinfo";
 
