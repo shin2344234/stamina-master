@@ -131,7 +131,10 @@ namespace
         // nothing, left them at the game's numbers with no line in the log. A
         // value out of range still means nothing is written anywhere.
         if (!g_stop.load() && sm::stamina::SettingsInRange(s.scale))
+        {
+            sm::mem::FaultSite site("guard");
             sm::stamina::ApplyGuard(s.scale.guard);
+        }
 
         // Apply reads each write back as it makes it, which says the store
         // landed and nothing else. These two say whether it is still there once
