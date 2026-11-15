@@ -273,7 +273,7 @@ namespace sm::stamina
                 LOG("[stamina] Spirit is statusinfo row %u; its costs go to %d%%.", spirit, scale.spirit);
         }
 
-        int changed = 0, skippedPositive = 0, failed = 0, shown = 0;
+        int changed = 0, skippedPositive = 0, failed = 0;
         int spiritKept = 0;            // Spirit entries that give Spirit back, left alone
         int byKind[5] = {};            // one-off, continuous, mount, mount regen, spirit
         static const char* kKind[5] = { "one-off", "continuous", "mount", "mount regen", "spirit" };
@@ -346,13 +346,14 @@ namespace sm::stamina
                     if (static_cast<int64_t>(back) != after) { ++failed; continue; }
                     ++changed;
                     ++byKind[kind];
-                    if (verbose && shown < 400)
+                    // Every one of them. This ran under a cap of 400 lines
+                    // through 1.0.8, which 2.05.00's 364 came close to.
+                    if (verbose)
                     {
                         char key[96] = "(no key)";
                         tables::StringKey(skill, r, key, sizeof key);
                         LOG("[stamina]   %-44s %-10s %lld -> %lld", key, kKind[kind],
                             static_cast<long long>(before), static_cast<long long>(after));
-                        ++shown;
                     }
                 }
             }
