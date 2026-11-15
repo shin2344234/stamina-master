@@ -4,9 +4,14 @@ A stamina plugin for Crimson Desert 2.05.00, exe 1.0.0.3663. It still runs on
 2.04.08. The DLC moved the table layouts it reads, so 2.03.02 and older need
 1.0.3.
 
-1.0.8 follows the 13 November game update, which rebuilt the container every
+1.0.9 opens the skill table through its getter on 2.05.00, which cuts the
+caught read faults at startup to none in testing, and fixes `GuardPercent`
+taking 0 as the game's cost when every other setting is 100. It also writes the
+blocked hit costs when the skill table never loads.
+
+1.0.8 followed the 13 November game update, which rebuilt the container every
 game data table sits in, so 1.0.7 found no tables and changed nothing. It also
-adds `GuardPercent`, which sets what a blocked hit costs.
+added `GuardPercent`, which sets what a blocked hit costs.
 
 It multiplies the stamina cost of what you do, so sprinting, climbing,
 swimming, gliding and riding cost a fraction of what the game charges, and
@@ -65,6 +70,11 @@ every skill, from six settings picked by how hard the hit was, with defaults
 of 10, 30, 45, 90, 150 and 300 stamina. The plugin finds them by the code that
 reads them and scales them. At 0 blocking is free, and a guard no longer breaks
 from running out of stamina. At 100 the game keeps its own numbers.
+
+Those six sit in memory the game leaves at 0 until it fills them in, so the
+plugin asks again once a second, for up to two minutes, whenever a cost still
+reads 0 or the code that reads them is not found yet. They are written once the
+skill table wait ends, whether or not the skill table itself was rewritten.
 
 Of the 263 entries that name Stamina, 213 are costs and get scaled, 26 are
 already zero, and 24 give stamina back. Twelve of those give-backs are a
@@ -135,8 +145,9 @@ for the moment that happens. A table still short of that after two minutes
 leaves stamina as the game has it, and the log says so.
 
 Its last line counts the reads that faulted and were caught while the plugin
-looked for the skill table. Anything from a few dozen to a couple of thousand
-is normal.
+looked for the skill table, and says which part of the plugin was reading when
+each one happened. On 2.05.00 it is usually 0. Anything up to a couple of
+thousand is normal on older builds.
 Candidate pointers are checked against a map of mapped memory before they are
 read, and the few that still fault are ones where the memory changed between
 the check and the read. A count in the hundreds of thousands means that map is

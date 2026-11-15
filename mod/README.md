@@ -1,11 +1,15 @@
-# Stamina Master 1.0.8
+# Stamina Master 1.0.9
 
 For Crimson Desert 2.05.00, exe 1.0.0.3663, and it still runs on 2.04.08. The
 DLC moved the table layouts it reads, so 2.03.02 and older need 1.0.3.
 
-New in 1.0.8: the 13 November game update rebuilt the container the game's
-data tables sit in, and 1.0.7 changed nothing on it. This version reads the new
-one. `GuardPercent` is new too and sets what a blocked hit costs.
+New in 1.0.9: `GuardPercent` no longer takes 0 as the game's cost when every
+other setting is 100, and the blocked hit costs are written even if the skill
+table never loads. The skill table is also opened through its getter on
+2.05.00, so the plugin starts with no caught read faults.
+
+1.0.8 added `GuardPercent` and reads the container the 13 November game update
+introduced, which 1.0.7 could not.
 
 Out of the box nothing you do on foot costs stamina, and a horse recovers at a
 gallop about as fast as it does standing still. Every number is a setting, so
@@ -74,6 +78,9 @@ of 10, 30, 45, 90, 150 and 300 stamina. The plugin finds them by the code that
 reads them and scales them. At 0 blocking is free, and a guard no longer breaks
 from running out of stamina. At 100 the game keeps its own numbers.
 
+Those six read 0 until the game fills them in, so the plugin asks again once a
+second, for up to two minutes, until they hold real values.
+
 Combat is included because the game keeps no flag anywhere that separates
 travelling from fighting. Set `UsePercent` and `ContinuousPercent` to 100 if you
 want the mod on your horse and nowhere else.
@@ -86,8 +93,9 @@ minutes in that confirms the changes are still there. That log is the useful
 thing to attach to a bug report.
 
 The last line of that log counts the reads that faulted and were caught while
-the plugin looked for the skill table. Anything from a few dozen to a couple
-of thousand is normal.
+the plugin looked for the skill table, with the part of the plugin that made
+each one. On 2.05.00 it is usually 0. Anything up to a couple of thousand is
+normal on older builds.
 Candidate pointers are checked against a map of mapped memory first, and the
 few that still fault are ones where the memory changed in between. A count in
 the hundreds of thousands is worth reporting. If a crash reporter or another
