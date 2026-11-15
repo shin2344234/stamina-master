@@ -90,7 +90,7 @@ namespace
         // for a load; past that something has changed and saying so beats
         // polling in silence for the rest of the session.
         int waited = 0;
-        bool probed = !s.probe, applied = false, guardDone = false;
+        bool probed = !s.probe, applied = false;
         while (!g_stop.load())
         {
             // Before Apply, so the survey reports the game's own amounts
@@ -112,13 +112,6 @@ namespace
                 sm::mem::FaultSite site("apply");
                 const int n = sm::stamina::Apply(s.scale, s.probe);
                 applied = n != 0 || nothingToDo;
-                // After the table write and only if that was not refused, so a
-                // value out of range still means nothing is written at all.
-                if (applied && n >= 0 && !guardDone)
-                {
-                    sm::stamina::ApplyGuard(s.scale.guard);
-                    guardDone = true;
-                }
             }
             if (!(probed && applied) && ++waited == 120)
             {
@@ -131,6 +124,14 @@ namespace
                 break;
             for (int i = 0; i < 2 && !g_stop.load(); ++i) Sleep(500);
         }
+
+        // The blocked hit costs come after the table write, whatever became of
+        // it. They are found by their own code and never depended on skill, and
+        // through 1.0.8 a table that did not open, or a write that changed
+        // nothing, left them at the game's numbers with no line in the log. A
+        // value out of range still means nothing is written anywhere.
+        if (!g_stop.load() && sm::stamina::SettingsInRange(s.scale))
+            sm::stamina::ApplyGuard(s.scale.guard);
 
         // Apply reads each write back as it makes it, which says the store
         // landed and nothing else. These two say whether it is still there once

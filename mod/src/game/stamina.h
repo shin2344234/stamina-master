@@ -68,6 +68,11 @@ namespace sm::stamina
     // that restores stamina keeps restoring the same amount.
     int Apply(const Scale& scale, bool verbose);
 
+    // Whether every setting is inside the range Apply accepts. Says nothing;
+    // Apply logs the refusal. The worker uses it to decide whether the blocked
+    // hit costs may be written, since those do not depend on the skill table.
+    bool SettingsInRange(const Scale& scale);
+
     // Scale the six blocked-hit costs. Finds them by the code that reads them,
     // and if that code has changed it says so and leaves the game alone.
     void ApplyGuard(int percent);

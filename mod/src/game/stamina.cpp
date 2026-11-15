@@ -210,6 +210,13 @@ namespace
 
 namespace sm::stamina
 {
+    bool SettingsInRange(const Scale& scale)
+    {
+        for (int v : { scale.oneOff, scale.continuous, scale.mount, scale.spirit, scale.guard })
+            if (v < 0 || v > 100) return false;
+        return scale.mountRegen >= 100 && scale.mountRegen <= 10000;
+    }
+
     int Apply(const Scale& scale, bool verbose)
     {
         const struct { int v; const char* name; } settings[] = {
