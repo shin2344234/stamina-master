@@ -395,22 +395,23 @@ namespace sm::stamina
         }
     }
 
-    void ApplyGuard(int percent)
+    bool ApplyGuard(int percent, bool lastTry)
     {
         if (percent == 100)
         {
             LOG("[guard] GuardPercent is 100, so a blocked hit costs what the game charges.");
-            return;
+            return true;
         }
 
         size_t hits = 0;
         const uintptr_t code = mem::FindUnique(kSig_GuardCostTiers, &hits);
         if (!code)
         {
+            if (hits == 0 && !lastTry) return false;
             LOG_ERR("[guard] the code that picks a blocked hit's cost matched %zu times instead of once, "
                     "so this build has changed it. Blocked hits keep the game's cost and everything "
                     "else in this mod still applies.", hits);
-            return;
+            return true;
         }
 
         const uintptr_t base = mem::Game().base;
@@ -423,7 +424,7 @@ namespace sm::stamina
             if (!mem::Read32(code + kOff_GuardCost_Disp[i], &disp))
             {
                 LOG_ERR("[guard] could not read the address of cost %d. Blocked hits keep the game's cost.", i);
-                return;
+                return true;
             }
             at[i] = code + kOff_GuardCost_End[i] + static_cast<int32_t>(disp);
             if (at[i] < base || at[i] + sizeof(int) > end || !mem::Read32(at[i], &value) ||
@@ -432,7 +433,19 @@ namespace sm::stamina
                 LOG_ERR("[guard] cost %d at 0x%p holds %d, which is not a stamina cost. Nothing is written "
                         "and blocked hits keep the game's cost.", i, reinterpret_cast<void*>(at[i]),
                         static_cast<int>(value));
-                return;
+                return true;
+            }
+            // The six live in memory the exe leaves zeroed until a static
+            // constructor fills in 10 to 300, so 0 means not set up yet. Taken
+            // as the game's cost, it would be what RecheckGuard enforces for
+            // the rest of the session.
+            if (value == 0)
+            {
+                if (!lastTry) return false;
+                LOG_ERR("[guard] cost %d at 0x%p still reads 0 after the wait, so the game never set it "
+                        "up or something else zeroed it. Nothing is written and blocked hits keep "
+                        "whatever the game charges.", i, reinterpret_cast<void*>(at[i]));
+                return true;
             }
             before[i] = static_cast<int>(value);
         }
@@ -454,6 +467,7 @@ namespace sm::stamina
                before[0], before[1], before[2], before[3], before[4], before[5],
                g_guardWant[0], g_guardWant[1], g_guardWant[2], g_guardWant[3], g_guardWant[4],
                g_guardWant[5], failed ? " Some writes did not land." : "");
+        return true;
     }
 
     void RecheckGuard(const char* when)

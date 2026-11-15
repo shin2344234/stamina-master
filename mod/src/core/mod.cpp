@@ -130,10 +130,20 @@ namespace
         // through 1.0.8 a table that did not open, or a write that changed
         // nothing, left them at the game's numbers with no line in the log. A
         // value out of range still means nothing is written anywhere.
+        //
+        // With every skill setting at 100 the loop above ends on its first pass,
+        // before the game has filled in the six costs, so ApplyGuard is asked
+        // once a second until they are there, for up to two minutes.
         if (!g_stop.load() && sm::stamina::SettingsInRange(s.scale))
         {
             sm::mem::FaultSite site("guard");
-            sm::stamina::ApplyGuard(s.scale.guard);
+            for (int pass = 1; !g_stop.load(); ++pass)
+            {
+                if (sm::stamina::ApplyGuard(s.scale.guard, pass == 120)) break;
+                if (pass == 1)
+                    LOG("[guard] the blocked hit costs are not set up yet; waiting on them");
+                for (int i = 0; i < 2 && !g_stop.load(); ++i) Sleep(500);
+            }
         }
 
         // Apply reads each write back as it makes it, which says the store

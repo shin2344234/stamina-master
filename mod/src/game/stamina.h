@@ -75,7 +75,10 @@ namespace sm::stamina
 
     // Scale the six blocked-hit costs. Finds them by the code that reads them,
     // and if that code has changed it says so and leaves the game alone.
-    void ApplyGuard(int percent);
+    // Returns false when it is worth asking again: the code is not there yet,
+    // or a cost still reads 0 because the game has not set it up. On lastTry
+    // it says why and returns true.
+    bool ApplyGuard(int percent, bool lastTry);
 
     // Read the six back on a timer and put them back if something else has
     // changed them. Does nothing when ApplyGuard wrote nothing.
