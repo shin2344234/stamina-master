@@ -41,23 +41,17 @@ namespace sm::mem
         struct Region { uintptr_t base, end; DWORD when; bool ok; };
         Region g_regs[256];
         int    g_regN = 0, g_regNext = 0;
-        CRITICAL_SECTION g_regCs;
-        LONG   g_regCsReady = 0;
         volatile LONG g_faults = 0;
 
-        void RegLock()
-        {
-            if (InterlockedCompareExchange(&g_regCsReady, 1, 0) == 0)
-                InitializeCriticalSection(&g_regCs);
-            while (InterlockedCompareExchange(&g_regCsReady, 2, 2) != 2)
-            {
-                // First initializer publishes state 2 once the CS is ready.
-                if (InterlockedCompareExchange(&g_regCsReady, 2, 1) == 1) break;
-                Sleep(0);
-            }
-            EnterCriticalSection(&g_regCs);
-        }
-        void RegUnlock() { LeaveCriticalSection(&g_regCs); }
+        // Statically initialised, so there is no first-use setup to race. The
+        // critical section this replaced was set up on first use behind a
+        // 0, 1, 2 flag, and a second thread arriving while the first was still
+        // inside InitializeCriticalSection could move the flag to 2 itself and
+        // enter it before it existed. Nothing here is taken recursively.
+        SRWLOCK g_regLock = SRWLOCK_INIT;
+
+        void RegLock()   { AcquireSRWLockExclusive(&g_regLock); }
+        void RegUnlock() { ReleaseSRWLockExclusive(&g_regLock); }
 
         // Readable by a plain load. Committed with NOACCESS or GUARD is not,
         // and neither is PAGE_EXECUTE on its own, which Readable let through
