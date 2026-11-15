@@ -24,7 +24,9 @@ set(FETCHCONTENT_QUIET FALSE)
 FetchContent_Declare(
     minhook
     GIT_REPOSITORY https://github.com/TsudaKageyu/minhook.git
-    GIT_TAG        master
+    # A fixed commit, so a fresh build directory compiles what 1.0.8 did
+    # rather than whatever the upstream branch holds that day.
+    GIT_TAG        8af6b4acae5a9388fd742b56fa79ece89d96f823
 )
 FetchContent_MakeAvailable(minhook)
 
