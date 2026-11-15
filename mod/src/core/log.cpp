@@ -169,6 +169,17 @@ namespace sm::Log
         if (g_file) { fclose(g_file); g_file = nullptr; }
     }
 
+    // At process exit the worker has already been terminated, possibly in the
+    // middle of a line with g_mu held, and waiting on it would hang the exit
+    // for good. Every line is flushed as it is written, so leaving the file
+    // open loses nothing.
+    void ShutdownAtExit()
+    {
+        if (!g_mu.try_lock()) return;
+        if (g_file) { fclose(g_file); g_file = nullptr; }
+        g_mu.unlock();
+    }
+
     void Snapshot(std::vector<std::string>& out, int maxLines)
     {
         std::lock_guard<std::mutex> lk(g_mu);

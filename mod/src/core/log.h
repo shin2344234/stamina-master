@@ -30,6 +30,9 @@ namespace sm::Log
 
     bool Claimed();
     void Shutdown();
+    // The same at process exit, where it closes the file only if the lock is
+    // free and otherwise leaves it to the system.
+    void ShutdownAtExit();
     void Snapshot(std::vector<std::string>& out, int maxLines);
 }
 

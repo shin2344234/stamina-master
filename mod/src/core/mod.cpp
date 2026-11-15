@@ -215,7 +215,7 @@ namespace sm::Mod
         g_stop.store(true);
         if (processExiting)
         {
-            Log::Shutdown();
+            Log::ShutdownAtExit();
             return;
         }
         if (g_thread)
