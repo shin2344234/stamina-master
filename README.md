@@ -1,8 +1,11 @@
 # Stamina Master
 
-A stamina plugin for Crimson Desert 2.05.00, exe 1.0.0.3663. It still runs on
-2.04.08. The DLC moved the table layouts it reads, so 2.03.02 and older need
+A stamina plugin for Crimson Desert 2.05.01, exe 1.0.0.3732. It still runs on
+2.05.00 and 2.04.08. The DLC moved the table layouts it reads, so 2.03.02 and older need
 1.0.3.
+
+1.0.10 names game 2.05.01, exe 1.0.0.3732, in its ini and startup line and
+changes nothing else. It was not tested in play.
 
 1.0.9 opens the skill table through its getter on 2.05.00, which cuts the
 caught read faults at startup to none in testing, and fixes `GuardPercent`

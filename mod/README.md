@@ -1,7 +1,10 @@
-# Stamina Master 1.0.9
+# Stamina Master 1.0.10
 
-For Crimson Desert 2.05.00, exe 1.0.0.3663, and it still runs on 2.04.08. The
+For Crimson Desert 2.05.01, exe 1.0.0.3732, and it still runs on 2.05.00 and 2.04.08. The
 DLC moved the table layouts it reads, so 2.03.02 and older need 1.0.3.
+
+New in 1.0.10: the ini and the startup line name game 2.05.01, exe
+1.0.0.3732. Nothing else changed, and this build was not tested in play.
 
 New in 1.0.9: `GuardPercent` no longer takes 0 as the game's cost when every
 other setting is 100, and the blocked hit costs are written even if the skill
