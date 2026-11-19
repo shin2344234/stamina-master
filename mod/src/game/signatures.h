@@ -29,6 +29,13 @@
 // Three AI rows went in ahead of Stamina, so on this build an entry's rate
 // rows read 44 and 46 where the notes below say 41 and 43.
 //
+// Exe 1.0.0.3732 (Steam build 26776744, 0.paver 2.05.01) changed none of it.
+// The getter pattern hits 120 times, statusinfo's global is +0x724C568 and
+// skill's +0x724C570, the guard pattern hits once at +0x19D72DF, the three
+// loaders dump the same offsets, and the list reader at 0x017A34F0 has the
+// same body. statusinfo still has 90 rows with Stamina at 25, and skill
+// 2,160.
+//
 // Exe 1.0.0.3446 (Steam build 26329202, 0.paver 2.04.02) changed none of it
 // either. 130 resolver hits, statusinfo's global at 0x71B2A18, both vtables,
 // the same three loader dumps, and the list reader the same bytes at
