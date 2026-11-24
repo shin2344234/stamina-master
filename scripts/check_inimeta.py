@@ -17,7 +17,8 @@ mod/src/core/mod.cpp reads:
   - the ini's own default (the value after =) must match the fallback string
     ReadSetting() is called with.
   - the ;@ min/max must match the clamp Apply() in mod/src/game/stamina.cpp
-    enforces, for the three shared-range settings and MountRegenPercent.
+    enforces, for the shared-range settings, MountRegenPercent and
+    GlidePercent.
   - the ini's own default must fall inside that clamp.
 
 Exits non-zero on any mismatch, so it can gate a build.
@@ -84,6 +85,13 @@ def parse_shared_range(cpp):
     return keys, lo, hi
 
 
+def parse_glide_range(cpp):
+    m = re.search(r"scale\.glide < (-?\d+) \|\| scale\.glide > (-?\d+)", cpp)
+    if not m:
+        raise ValueError("GlidePercent clamp not found in Apply()")
+    return int(m.group(1)), int(m.group(2))
+
+
 def parse_mount_regen_range(cpp):
     m = re.search(r"scale\.mountRegen < (-?\d+) \|\| scale\.mountRegen > (-?\d+)", cpp)
     if not m:
@@ -126,6 +134,7 @@ def main():
     reader = parse_reader(mod_cpp)
     shared_keys, shared_lo, shared_hi = parse_shared_range(stamina_cpp)
     regen_lo, regen_hi = parse_mount_regen_range(stamina_cpp)
+    glide_lo, glide_hi = parse_glide_range(stamina_cpp)
     ini_keys = parse_ini(ini_text)
 
     errors = []
@@ -152,6 +161,8 @@ def main():
             lo, hi = shared_lo, shared_hi
         elif k == "MountRegenPercent":
             lo, hi = regen_lo, regen_hi
+        elif k == "GlidePercent":
+            lo, hi = glide_lo, glide_hi
         else:
             lo = hi = None
 

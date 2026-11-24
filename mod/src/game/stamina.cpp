@@ -161,6 +161,30 @@ namespace
 
     const unsigned kLists[2] = { kOff_Skill_UseResourceStatList, kOff_Skill_UseDriverResourceStatList };
 
+    // The glider's rows, for GlidePercent. Nothing in a skill record marks a
+    // glider, so the key is the test: Kliff's Skill_CrowWing, _Move, _MoveFast
+    // and _Dash, and Damian's Skill_Damian_ShieldGlider and _MoveFast, on
+    // 3732. A prefix rather than a list, so a glider row a patch adds is
+    // caught too. The Spirit dashes, Skill_CrowSuperDash and
+    // Skill_Damian_ShieldGlider_SuperDash, name Mp and never reach this test.
+    bool IsGliderKey(const char* key)
+    {
+        return strncmp(key, "Skill_CrowWing", 14) == 0 ||
+               strncmp(key, "Skill_Damian_ShieldGlider", 25) == 0;
+    }
+
+    // Reads a row's key at most once per row. cache is 0 before the first
+    // ask, then 1 for a glider and 2 for anything else.
+    bool IsGliderRow(const Table& skill, uint32_t row, int& cache)
+    {
+        if (!cache)
+        {
+            char key[96] = "";
+            cache = sm::tables::StringKey(skill, row, key, sizeof key) && IsGliderKey(key) ? 1 : 2;
+        }
+        return cache == 1;
+    }
+
     // How many entries name Stamina, over the whole table, writing nothing.
     int CountEntries(const Table& skill, uint16_t want)
     {
@@ -214,6 +238,7 @@ namespace sm::stamina
     {
         for (int v : { scale.oneOff, scale.continuous, scale.mount, scale.spirit, scale.guard })
             if (v < 0 || v > 100) return false;
+        if (scale.glide < -1 || scale.glide > 100) return false;
         return scale.mountRegen >= 100 && scale.mountRegen <= 10000;
     }
 
@@ -241,8 +266,16 @@ namespace sm::stamina
                     "is for.", scale.mountRegen);
             return -1;
         }
+        if (scale.glide < -1 || scale.glide > 100)
+        {
+            LOG_ERR("[stamina] GlidePercent is %d, which is outside -1 to 100. Nothing is written. -1 "
+                    "leaves the glider with the other settings and 0 to 100 sets it on its own.",
+                    scale.glide);
+            return -1;
+        }
+        const bool glideOwn = scale.glide >= 0;
         if (scale.oneOff == 100 && scale.continuous == 100 && scale.mount == 100 &&
-            scale.mountRegen == 100 && scale.spirit == 100)
+            scale.mountRegen == 100 && scale.spirit == 100 && (!glideOwn || scale.glide == 100))
         {
             LOG("[stamina] every skill table setting is 100, so the table keeps the game's own "
                 "numbers and nothing in it is written.");
@@ -275,14 +308,17 @@ namespace sm::stamina
 
         int changed = 0, skippedPositive = 0, failed = 0;
         int spiritKept = 0;            // Spirit entries that give Spirit back, left alone
-        int byKind[5] = {};            // one-off, continuous, mount, mount regen, spirit
-        static const char* kKind[5] = { "one-off", "continuous", "mount", "mount regen", "spirit" };
+        int byKind[6] = {};            // one-off, continuous, mount, mount regen, spirit, glide
+        static const char* kKind[6] = { "one-off", "continuous", "mount", "mount regen", "spirit",
+                                        "glide" };
+        int gliderSeen = 0;            // glider stamina costs found, written or not
         for (uint32_t r = 0; r < skill.rows; ++r)
         {
             const uintptr_t rec = tables::Def(skill, r);
             if (!rec) continue;
             uint8_t applyType = 0;
             mem::Read8(rec + kOff_Skill_ApplyType, &applyType);
+            int glider = 0;            // IsGliderRow's answer for this row, once asked
 
             for (unsigned off : kLists)
             {
@@ -325,6 +361,14 @@ namespace sm::stamina
                         percent = scale.mountRegen;
                     }
                     else if (before == 0) continue;
+                    else if (glideOwn && IsGliderRow(skill, r, glider))
+                    {
+                        // GlidePercent wins over every other kind for the
+                        // glider's own rows, held or tapped.
+                        kind = 5;
+                        percent = scale.glide;
+                        ++gliderSeen;
+                    }
                     else
                     {
                         // Mount wins over continuous: a mounted skill is a
@@ -370,6 +414,17 @@ namespace sm::stamina
                changed == 1 ? "" : "s", byKind[0], scale.oneOff, byKind[1], scale.continuous, byKind[2],
                scale.mount, byKind[3], scale.mountRegen, byKind[4], scale.spirit,
                failed ? " Some writes were refused; see above." : "");
+        if (glideOwn)
+        {
+            if (gliderSeen)
+                LOG_OK("[glide] GlidePercent=%d sets the glider apart: %d glider stamina cost%s found, %d "
+                       "rewritten at %d%%, and none of them follows UsePercent or ContinuousPercent.",
+                       scale.glide, gliderSeen, gliderSeen == 1 ? "" : "s", byKind[5], scale.glide);
+            else
+                LOG_ERR("[glide] GlidePercent=%d, but no Skill_CrowWing or Skill_Damian_ShieldGlider row "
+                        "carries a stamina cost this session, so the glider was not set apart. The skill "
+                        "keys have changed on this build.", scale.glide);
+        }
         if (spiritKept)
             LOG("[stamina] %d Spirit entr%s carried a positive amount and %s left alone.", spiritKept,
                 spiritKept == 1 ? "y" : "ies", spiritKept == 1 ? "was" : "were");

@@ -43,6 +43,7 @@ All of them live in `StaminaMaster.ini`.
     MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
     SpiritPercent=100       Spirit costs, 100 leaves them alone
     GuardPercent=0          what a blocked hit costs
+    GlidePercent=-1         the glider on its own, -1 leaves it with the rest
     Probe=0                 write the research report to the log
 
 The first three are a percentage of the game's own cost. 100 leaves that kind
@@ -83,6 +84,15 @@ from running out of stamina. At 100 the game keeps its own numbers.
 
 Those six read 0 until the game fills them in, so the plugin asks again once a
 second, for up to two minutes, until they hold real values.
+
+`GlidePercent` sets the glider on its own: holding it open, gliding, gliding
+fast and the stamina its dash takes, for Kliff's wings and Damian's shield
+glider. At the default of -1 the glider follows `UsePercent` and
+`ContinuousPercent` as it always has. From 0 to 100 it takes this value
+instead. For the glider at a tenth and nothing else changed, set
+`UsePercent=100`, `ContinuousPercent=100`, `MountPercent=100`,
+`MountRegenPercent=100` and `GlidePercent=10`. The Spirit half of the dash
+stays with `SpiritPercent`, and the rocket pack stays with `ContinuousPercent`.
 
 Combat is included because the game keeps no flag anywhere that separates
 travelling from fighting. Set `UsePercent` and `ContinuousPercent` to 100 if you

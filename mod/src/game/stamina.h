@@ -60,6 +60,17 @@ namespace sm::stamina
         // table, from six settings picked by how hard the hit is, so Apply
         // only range-checks this and ApplyGuard does the work.
         int guard = 100;
+
+        // The glider's stamina costs on their own: Kliff's wings
+        // (Skill_CrowWing*) and Damian's shield glider
+        // (Skill_Damian_ShieldGlider*), held, moving, moving fast and the
+        // stamina half of the dash. No field sets the glider apart from the
+        // other held drains, so these rows are picked out by their skill key.
+        // The Spirit dashes stay with SpiritPercent and the rocket pack stays
+        // with ContinuousPercent. -1, the default, leaves the glider with the
+        // settings above, exactly as before this setting existed; 0 to 100
+        // takes it out of them.
+        int glide = -1;
     };
 
     // Returns how many entries were rewritten, 0 when the tables are not

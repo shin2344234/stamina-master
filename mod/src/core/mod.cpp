@@ -69,6 +69,7 @@ namespace
         s.scale.mountRegen = static_cast<int>(ReadSetting(L"MountRegenPercent", L"1000"));
         s.scale.spirit     = static_cast<int>(ReadSetting(L"SpiritPercent", L"100"));
         s.scale.guard      = static_cast<int>(ReadSetting(L"GuardPercent", L"0"));
+        s.scale.glide      = static_cast<int>(ReadSetting(L"GlidePercent", L"-1"));
         s.probe            = ReadSetting(L"Probe", L"0") != 0.0f;
         return s;
     }
@@ -79,9 +80,9 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.05.01 (exe 1.0.0.3732). UsePercent=%d ContinuousPercent=%d "
-            "MountPercent=%d MountRegenPercent=%d SpiritPercent=%d GuardPercent=%d Probe=%d", SM_NAME,
-            SM_VERSION, s.scale.oneOff, s.scale.continuous, s.scale.mount, s.scale.mountRegen,
-            s.scale.spirit, s.scale.guard, s.probe ? 1 : 0);
+            "MountPercent=%d MountRegenPercent=%d SpiritPercent=%d GuardPercent=%d GlidePercent=%d Probe=%d",
+            SM_NAME, SM_VERSION, s.scale.oneOff, s.scale.continuous, s.scale.mount, s.scale.mountRegen,
+            s.scale.spirit, s.scale.guard, s.scale.glide, s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(sm::mem::Game().base), sm::mem::Game().size);
 
@@ -108,7 +109,8 @@ namespace
                 // repeating, unless there was nothing to do in the first place.
                 const bool nothingToDo = s.scale.oneOff == 100 && s.scale.continuous == 100 &&
                                          s.scale.mount == 100 && s.scale.mountRegen == 100 &&
-                                         s.scale.spirit == 100;
+                                         s.scale.spirit == 100 &&
+                                         (s.scale.glide < 0 || s.scale.glide == 100);
                 sm::mem::FaultSite site("apply");
                 const int n = sm::stamina::Apply(s.scale, s.probe);
                 applied = n != 0 || nothingToDo;

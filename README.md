@@ -45,6 +45,7 @@ extra pack groups, `dmmgen` and `dmmsa`, that overwriting it would remove.
     MountRegenPercent=1000  how fast a horse recovers, 100 to 10000
     SpiritPercent=100       Spirit costs, 100 leaves them alone
     GuardPercent=0          what a blocked hit costs
+    GlidePercent=-1         the glider on its own, -1 leaves it with the rest
     Probe=0                 write the research report and a line per skill changed
 
 The first three are a percentage of the game's own cost, so 100 leaves that
@@ -78,6 +79,17 @@ Those six sit in memory the game leaves at 0 until it fills them in, so the
 plugin asks again once a second, for up to two minutes, whenever a cost still
 reads 0 or the code that reads them is not found yet. They are written once the
 skill table wait ends, whether or not the skill table itself was rewritten.
+
+`GlidePercent` sets the glider apart from everything else. No field in the
+game's data separates it from the other held drains, so the plugin picks out
+the `Skill_CrowWing` and `Skill_Damian_ShieldGlider` rows by name: holding the
+glider open, gliding, gliding fast and the stamina the dash takes. At the
+default of -1 those rows follow `UsePercent` and `ContinuousPercent` like
+before. From 0 to 100 they take this value instead, so `UsePercent=100`,
+`ContinuousPercent=100`, `MountPercent=100`, `MountRegenPercent=100` and
+`GlidePercent=10` leave every cost at the game's own except the glider, which
+costs a tenth. The Spirit half of the dash stays with `SpiritPercent` and the
+rocket pack stays with `ContinuousPercent`.
 
 Of the 263 entries that name Stamina, 213 are costs and get scaled, 26 are
 already zero, and 24 give stamina back. Twelve of those give-backs are a
