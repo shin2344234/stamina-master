@@ -76,8 +76,10 @@ namespace sm::stamina
     // Returns how many entries were rewritten, 0 when the tables are not
     // loaded yet (worth calling again), or -1 when something was wrong enough
     // that nothing was written. Only negative amounts are touched, so a skill
-    // that restores stamina keeps restoring the same amount.
-    int Apply(const Scale& scale, bool verbose);
+    // that restores stamina keeps restoring the same amount. A statusinfo row
+    // that does not hash to Stamina yet is a table still filling in, so that
+    // returns 0 too, until lastTry says the wait is over.
+    int Apply(const Scale& scale, bool verbose, bool lastTry);
 
     // Whether every setting is inside the range Apply accepts. Says nothing;
     // Apply logs the refusal. The worker uses it to decide whether the blocked

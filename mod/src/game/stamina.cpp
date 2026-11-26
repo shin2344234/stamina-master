@@ -266,7 +266,7 @@ namespace sm::stamina
         return scale.mountRegen >= 100 && scale.mountRegen <= 10000;
     }
 
-    int Apply(const Scale& scale, bool verbose)
+    int Apply(const Scale& scale, bool verbose, bool lastTry)
     {
         const struct { int v; const char* name; } settings[] = {
             { scale.oneOff,     "UsePercent" },
@@ -309,9 +309,24 @@ namespace sm::stamina
         Table status, skill;
         if (!OpenBoth(status, skill)) return 0;      // not loaded yet, ask again
 
+        // On 3840 statusinfo opens with its row count while the defs are still
+        // being filled in, so a hash that matches nothing this early means the
+        // table is loading. The 26 Nov 2026 run gave up here and then found
+        // Stamina at row 25 a minute later.
         uint16_t want = 0;
         if (!StaminaIndex(status, want))
         {
+            if (!lastTry)
+            {
+                static bool s_told = false;
+                if (!s_told)
+                {
+                    s_told = true;
+                    LOG("[stamina] statusinfo has %u rows and none hashes to Stamina yet; waiting on it.",
+                        status.rows);
+                }
+                return 0;
+            }
             LOG_ERR("[stamina] no statusinfo row hashes to 0x%08X, so the Stamina status could not be "
                     "named and nothing is written.", kHash_Stamina);
             return -1;
@@ -322,6 +337,7 @@ namespace sm::stamina
         if (scale.spirit != 100)
         {
             spirit = SpiritIndex(status);
+            if (spirit == 0xFFFF && !lastTry) return 0;   // a later row, still filling in
             if (spirit == 0xFFFF)
                 LOG_ERR("[stamina] SpiritPercent is %d, but no statusinfo row hashes to 0x%08X, so Spirit "
                         "could not be named and its costs are left alone. Stamina is unaffected.",
@@ -693,7 +709,12 @@ namespace sm::stamina
                 if (tables::RowByKey(skill, R.key) < 0) return false;
 
         uint16_t want = 0;
-        if (!StaminaIndex(status, want)) { LOG_ERR("[probe] Stamina is not in statusinfo by hash."); return true; }
+        if (!StaminaIndex(status, want))
+        {
+            if (!lastTry) return false;          // statusinfo still filling in, as in Apply
+            LOG_ERR("[probe] Stamina is not in statusinfo by hash.");
+            return true;
+        }
         LOG_OK("[probe] statusinfo %u rows, skill %u rows, Stamina _statusIndex %u", status.rows,
                skill.rows, want);
 

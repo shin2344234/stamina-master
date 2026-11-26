@@ -112,7 +112,7 @@ namespace
                                          s.scale.spirit == 100 &&
                                          (s.scale.glide < 0 || s.scale.glide == 100);
                 sm::mem::FaultSite site("apply");
-                const int n = sm::stamina::Apply(s.scale, s.probe);
+                const int n = sm::stamina::Apply(s.scale, s.probe, waited == 119);
                 applied = n != 0 || nothingToDo;
             }
             if (!(probed && applied) && ++waited == 120)
