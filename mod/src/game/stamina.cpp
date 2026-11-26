@@ -35,7 +35,7 @@ namespace
         LOG("[table] %s opened by its %s: global +0x%llX, %u rows, %s at +0x%X", label,
             t.viaRtti ? "manager's RTTI" : "resolver",
             static_cast<unsigned long long>(sm::mem::Rva(t.global)), t.rows,
-            t.rowEntries ? "row entries" : "defs", t.defsOff);
+            sm::tables::ContainerName(t), t.defsOff);
     }
 
     // How many one-second passes to wait on a getter whose table has no rows
@@ -135,13 +135,29 @@ namespace
     // offline against hashlittle over the lowercase name.
     bool IndexByHash(const Table& status, uint32_t hash, uint16_t& out)
     {
+        const sm::sig::DefLayout& L = sm::tables::Layout(status);
         for (uint32_t r = 0; r < status.rows; ++r)
         {
             uint32_t h = 0;
             const uintptr_t def = sm::tables::Def(status, r);
-            if (!def || !sm::mem::Read32(def + kOff_Status_KeyHash, &h) || h != hash) continue;
+            if (!def || !sm::mem::Read32(def + L.statusKeyHash, &h) || h != hash) continue;
             uint32_t idx = 0;
-            if (!sm::mem::Read32(def + kOff_Status_Index, &idx) || idx > 0xFFFF) return false;
+            if (!sm::mem::Read32(def + L.statusIndex, &idx) || idx > 0xFFFF) return false;
+            // On 3840 the index is also kept at a second offset, and both should
+            // be the row the def was built for. Said once per distinct answer.
+            uint32_t second = 0;
+            static uint32_t s_toldFor = 0xFFFFFFFFu;
+            if (L.statusIndexCheck && s_toldFor != hash)
+            {
+                s_toldFor = hash;
+                if (sm::mem::Read32(def + L.statusIndexCheck, &second) && (second != idx || idx != r))
+                    LOG_ERR("[table] status row %u holds index %u at +0x%X and %u at +0x%X, so the index the "
+                            "cost entries refer to is in doubt.", r, idx, L.statusIndex, second,
+                            L.statusIndexCheck);
+                else
+                    LOG("[table] status row %u holds index %u at +0x%X and at +0x%X.", r, idx,
+                        L.statusIndex, L.statusIndexCheck);
+            }
             out = static_cast<uint16_t>(idx);
             return true;
         }
@@ -159,7 +175,14 @@ namespace
         return IndexByHash(status, kHash_Spirit, out) ? out : 0xFFFF;
     }
 
-    const unsigned kLists[2] = { kOff_Skill_UseResourceStatList, kOff_Skill_UseDriverResourceStatList };
+    // The two list fields of a skill record, which sit 4 or 8 bytes apart from
+    // where 3732 had them depending on the container generation.
+    struct ListOffsets { unsigned v[2]; };
+    ListOffsets ListsOf(const Table& skill)
+    {
+        const sm::sig::DefLayout& L = sm::tables::Layout(skill);
+        return ListOffsets{ { L.skillUseList, L.skillDriverList } };
+    }
 
     // The glider's rows, for GlidePercent. Nothing in a skill record marks a
     // glider, so the key is the test: Kliff's Skill_CrowWing, _Move, _MoveFast
@@ -189,11 +212,12 @@ namespace
     int CountEntries(const Table& skill, uint16_t want)
     {
         int n = 0;
+        const ListOffsets lists = ListsOf(skill);
         for (uint32_t r = 0; r < skill.rows; ++r)
         {
             const uintptr_t rec = sm::tables::Def(skill, r);
             if (!rec) continue;
-            for (unsigned off : kLists)
+            for (unsigned off : lists.v)
             {
                 List l;
                 if (!ReadList(rec, off, l)) continue;
@@ -312,15 +336,19 @@ namespace sm::stamina
         static const char* kKind[6] = { "one-off", "continuous", "mount", "mount regen", "spirit",
                                         "glide" };
         int gliderSeen = 0;            // glider stamina costs found, written or not
+        const DefLayout& L = tables::Layout(skill);
+        const ListOffsets lists = ListsOf(skill);
+        uint32_t built = 0;            // rows whose def exists right now
         for (uint32_t r = 0; r < skill.rows; ++r)
         {
             const uintptr_t rec = tables::Def(skill, r);
             if (!rec) continue;
+            ++built;
             uint8_t applyType = 0;
-            mem::Read8(rec + kOff_Skill_ApplyType, &applyType);
+            mem::Read8(rec + L.skillApplyType, &applyType);
             int glider = 0;            // IsGliderRow's answer for this row, once asked
 
-            for (unsigned off : kLists)
+            for (unsigned off : lists.v)
             {
                 List l;
                 if (!ReadList(rec, off, l) || !l.size) continue;
@@ -403,6 +431,8 @@ namespace sm::stamina
             }
         }
 
+        LOG("[stamina] %u of %u skill rows had a def built when the table was walked (%s).", built, skill.rows,
+            tables::ContainerName(skill));
         if (!changed)
         {
             LOG_ERR("[stamina] no stamina cost was rewritten. Either the skill table holds none this "
@@ -549,6 +579,7 @@ namespace sm::stamina
         uint16_t want = 0;
         if (!StaminaIndex(status, want)) return;
         const uint16_t spirit = SpiritIndex(status);
+        const ListOffsets lists = ListsOf(skill);
 
         for (const char* key : { kSkillKey_Sprint, kSkillKey_Climb, kSkillKey_Swim,
                                  kSkillKey_Glide, kSkillKey_Horse, kSkillKey_Gallop,
@@ -557,7 +588,8 @@ namespace sm::stamina
             const int row = tables::RowByKey(skill, key);
             if (row < 0) continue;
             const uintptr_t rec = tables::Def(skill, static_cast<uint32_t>(row));
-            for (unsigned off : kLists)
+            if (!rec) { LOG("[verify] %-34s %s: its def is not built", key, when); continue; }
+            for (unsigned off : lists.v)
             {
                 List l;
                 if (!ReadList(rec, off, l) || !l.size) continue;
@@ -589,11 +621,13 @@ namespace sm::stamina
             "_isNoAlert, lowres _allowSkillWithLowResource, maxlv _maxLevel, then the entry's own "
             "statType and isRegen.");
         int n = 0;
+        const DefLayout& L = tables::Layout(skill);
+        const ListOffsets lists = ListsOf(skill);
         for (uint32_t r = 0; r < skill.rows; ++r)
         {
             const uintptr_t rec = tables::Def(skill, r);
             if (!rec) continue;
-            for (unsigned off : kLists)
+            for (unsigned off : lists.v)
             {
                 List l;
                 if (!ReadList(rec, off, l) || !l.size) continue;
@@ -612,14 +646,14 @@ namespace sm::stamina
 
                     uint32_t cool = 0, maxlv = 0;
                     uint8_t apply = 0, dmg = 0, ui = 0, alert = 0, lowres = 0, uiAllowed = 0;
-                    mem::Read32(rec + kOff_Skill_Cooltime, &cool);
-                    mem::Read32(rec + kOff_Skill_MaxLevel, &maxlv);
-                    mem::Read8(rec + kOff_Skill_ApplyType, &apply);
-                    mem::Read8(rec + kOff_Skill_DamageType, &dmg);
-                    mem::Read8(rec + kOff_Skill_UiType, &ui);
-                    mem::Read8(rec + kOff_Skill_IsNoAlert, &alert);
-                    mem::Read8(rec + kOff_Skill_AllowLowRes, &lowres);
-                    mem::Read8(rec + kOff_Skill_IsUiAllowed, &uiAllowed);
+                    mem::Read32(rec + L.skillCooltime, &cool);
+                    mem::Read32(rec + L.skillMaxLevel, &maxlv);
+                    mem::Read8(rec + L.skillApplyType, &apply);
+                    mem::Read8(rec + L.skillDamageType, &dmg);
+                    mem::Read8(rec + L.skillUiType, &ui);
+                    mem::Read8(rec + L.skillIsNoAlert, &alert);
+                    mem::Read8(rec + L.skillAllowLowRes, &lowres);
+                    mem::Read8(rec + L.skillIsUiAllowed, &uiAllowed);
 
                     char key[96] = "(no key)";
                     tables::StringKey(skill, r, key, sizeof key);
@@ -650,6 +684,8 @@ namespace sm::stamina
             { kSkillKey_Glide,  true }, { kSkillKey_Horse, true }, { kSkillKey_Control, false },
         };
 
+        const ListOffsets lists = ListsOf(skill);
+
         // Skill opens with its row count before the rows are filled in, so a
         // missing name this early is a table still loading. See Apply.
         if (!lastTry)
@@ -667,8 +703,9 @@ namespace sm::stamina
             const int row = tables::RowByKey(skill, R.key);
             if (row < 0) { LOG_ERR("[probe] no row keyed %s", R.key); continue; }
             const uintptr_t rec = tables::Def(skill, static_cast<uint32_t>(row));
+            if (!rec) { LOG_ERR("[probe] %s is row %d, and its def is not built", R.key, row); continue; }
             bool saw = false;
-            for (unsigned off : kLists)
+            for (unsigned off : lists.v)
             {
                 List l;
                 if (!ReadList(rec, off, l) || !l.size) continue;
@@ -714,8 +751,9 @@ namespace sm::stamina
             const int row = tables::RowByKey(skill, key);
             if (row < 0) { LOG("[probe] report row %s is not in the table.", key); continue; }
             const uintptr_t rec = tables::Def(skill, static_cast<uint32_t>(row));
+            if (!rec) { LOG("[probe] report %s is row %d, and its def is not built", key, row); continue; }
             int entries = 0;
-            for (unsigned off : kLists)
+            for (unsigned off : lists.v)
             {
                 List l;
                 if (!ReadList(rec, off, l)) { LOG("[probe] %s +0x%02X: list unreadable", key, off); continue; }

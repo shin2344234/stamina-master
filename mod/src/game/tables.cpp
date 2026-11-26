@@ -66,10 +66,68 @@ namespace
         return false;
     }
 
+    // The 3840 form. The getter takes the table object and does not hold the
+    // global, but it still reaches its slow-path loader through the same kind of
+    // call, which still names the table by a lea or a pointer cell.
+    bool GetterVisitV3(uintptr_t hit, void* ctx)
+    {
+        auto* h = static_cast<TableHunt*>(ctx);
+        for (uintptr_t p = hit + 0x20; p < hit + kMax_GetterToSlowCallV3; ++p)
+        {
+            if (!sm::mem::MatchAt(p, kSig_GetterSlowCallV3)) continue;
+            const uintptr_t slow = sm::mem::RipAt(p + kOff_GetterSlowCallV3_Call, 5);
+            if (!sm::mem::InImage(slow)) return false;
+            for (uintptr_t q = slow; q < slow + kMax_SlowPathToLea; ++q)
+            {
+                uintptr_t str = 0;
+                if (sm::mem::MatchAt(q, kSig_LeaR8Rip))
+                    str = sm::mem::RipAt(q, 7);
+                else if (sm::mem::MatchAt(q, kSig_MovR8Rip))
+                {
+                    const uintptr_t cell = sm::mem::RipAt(q, 7);
+                    if (!sm::mem::InImage(cell) || !sm::mem::ReadPtr(cell, &str) || !sm::mem::InImage(str))
+                        return false;
+                }
+                else
+                    continue;
+                char buf[48];
+                if (sm::mem::ReadCString(str, buf, sizeof buf) && strcmp(buf, h->name) == 0)
+                {
+                    h->fn = hit;
+                    return true;
+                }
+                return false;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    // `mov rcx,[rip+global]` directly before a call to the getter. Taken as the
+    // table's global once it sits in the image's data, which Finish then checks
+    // by reading names out of what it points at.
+    struct CallHunt { uintptr_t fn; uintptr_t global; };
+    bool CallSiteVisit(uintptr_t hit, void* ctx)
+    {
+        auto* c = static_cast<CallHunt*>(ctx);
+        if (sm::mem::RipAt(hit + 7, 5) != c->fn) return false;
+        const uintptr_t g = sm::mem::RipAt(hit, 7);
+        if (!sm::mem::InImage(g)) return false;
+        c->global = g;
+        return true;
+    }
+
     uintptr_t GlobalFor(const char* name)
     {
         sm::mem::FaultSite site("getter search");
         TableHunt h{ name, 0 };
+        sm::mem::FindIf(kSig_TableGetterV3, GetterVisitV3, &h);
+        if (h.fn)
+        {
+            CallHunt c{ h.fn, 0 };
+            sm::mem::FindIf(kSig_GetterCallSite, CallSiteVisit, &c);
+            return c.global;
+        }
         sm::mem::FindIf(kSig_TableGetter, GetterVisit, &h);
         if (h.fn)
         {
@@ -90,9 +148,8 @@ namespace
         int good = 0;
         for (uint32_t r = 0; r < t.rows && r < kMax_RowsToValidate; ++r)
         {
-            const uintptr_t def = sm::tables::Def(t, r);
             char key[64];
-            if (def && sm::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
+            if (sm::tables::StringKey(t, r, key, sizeof key) && strlen(key) >= 2)
                 if (++good >= 2) return true;
         }
         return false;
@@ -105,14 +162,29 @@ namespace
         if (!out.object) return false;
         sm::mem::FaultSite site(out.viaRtti ? "rtti layout" : "getter layout");
 
+        // The 3840 container. Its names are in the entries, so the check does
+        // not wait for any def to be built.
         uint32_t rows = 0;
+        if (sm::mem::Read32(out.object + kOff_V3_RowCount, &rows) && rows && rows <= 0x40000)
+        {
+            out.rows = rows;
+            out.gen = 2;
+            out.defsOff = kOff_V3_Rows;
+            if (KeysRead(out)) return true;
+        }
+        out.gen = 0;
+        out.defsOff = 0;
+        out.rows = 0;
+
         if (sm::mem::Read32(out.object + kOff_Table_RowCount, &rows) && rows && rows <= 0x40000)
         {
             out.rows = rows;
+            out.gen = 1;
             out.rowEntries = true;
             out.defsOff = kOff_Table_Rows;
             if (KeysRead(out)) return true;
         }
+        out.gen = 0;
         out.rowEntries = false;
         out.defsOff = 0;
         out.rows = 0;
@@ -167,9 +239,33 @@ namespace sm::tables
         return Finish(out);
     }
 
+    const sig::DefLayout& Layout(const Table& t)
+    {
+        return t.gen == 2 ? kLayout_3840 : kLayout_Pre3840;
+    }
+
+    const char* ContainerName(const Table& t)
+    {
+        return t.gen == 2 ? "0x30-byte entries" : t.gen == 1 ? "0x18-byte entries" : "def array";
+    }
+
+    // The address of a 3840 entry, or 0.
+    static uintptr_t EntryV3(const Table& t, uint32_t row)
+    {
+        uintptr_t items = 0;
+        if (!t.object || row >= t.rows) return 0;
+        if (!mem::ReadPtr(t.object + kOff_V3_Rows, &items)) return 0;
+        return items + 1ull * kRec_V3_EntryBytes * row;
+    }
+
     uintptr_t Def(const Table& t, uint32_t row)
     {
         uintptr_t defs = 0, def = 0;
+        if (t.gen == 2)
+        {
+            const uintptr_t e = EntryV3(t, row);
+            return e && mem::ReadPtr(e + kOff_V3_EntryDef, &def) ? def : 0;
+        }
         if (!t.object || row >= t.rows || !t.defsOff) return 0;
         if (!mem::ReadPtr(t.object + t.defsOff, &defs)) return 0;
         const uintptr_t slot = t.rowEntries
@@ -181,8 +277,13 @@ namespace sm::tables
 
     bool StringKey(const Table& t, uint32_t row, char* out, size_t n)
     {
-        const uintptr_t def = Def(t, row);
         if (out && n) out[0] = 0;
+        if (t.gen == 2)
+        {
+            const uintptr_t e = EntryV3(t, row);
+            return e && mem::ReadEngineString(e + kOff_V3_EntryName, out, n) && out[0];
+        }
+        const uintptr_t def = Def(t, row);
         return def && mem::ReadEngineString(def + kOff_Def_StringKey, out, n) && out[0];
     }
 

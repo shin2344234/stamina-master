@@ -36,6 +36,18 @@
 // same body. statusinfo still has 90 rows with Stamina at 25, and skill
 // 2,160.
 //
+// Exe 1.0.0.3840 (Steam build 26949954, game 2.06.00) changed all of it, and
+// the layout side is what the second block below is for. The table container
+// is new (rows at +0x18, count at +0x20, 0x30-byte entries holding the key,
+// the name, the pack offset and size, and the def pointer at +0x20). The
+// getter no longer holds its global, so the global is read off a call site.
+// Every def record lost its inline string key and its first 0x0C bytes became
+// {u32 key, u32 row index}, which moved every field by 4 or 8 bytes. The name
+// now lives in the entry at +0x08, not in the def. The UseResourceStat record,
+// the list reader's {items, size, capacity} and the guard chain did not move.
+// The data is the same: 263 skill rows carry a Stamina or Mp entry in both
+// builds, 263 entries in all, and none of them differs.
+//
 // Exe 1.0.0.3446 (Steam build 26329202, 0.paver 2.04.02) changed none of it
 // either. 130 resolver hits, statusinfo's global at 0x71B2A18, both vtables,
 // the same three loader dumps, and the list reader the same bytes at
@@ -83,6 +95,38 @@ namespace sm::sig
     inline constexpr const char* kSig_GetterSlowCall = "48 8D 54 24 30 E8";
     inline constexpr unsigned kMax_GetterToSlowCall = 0x60;
     inline constexpr unsigned kMax_SlowPathToLea    = 0x100;
+
+    // Exe 1.0.0.3840 replaced the getter again. It now takes the table object in
+    // rcx and the row in edx, so the global is not inside it. `mov [rsp+8],rbx;
+    // mov [rsp+0x18],rbp; mov [rsp+0x20],rsi; push rdi; sub rsp,0x30; mov
+    // ebp,edx; mov rsi,rcx; cmp edx,[rcx+0x20]; jae; mov rcx,[rcx+8]; call;
+    // test al,al; je`. It hits 139 times (0 on 3732), every clone names its
+    // table in the slow-path loader it calls after `lea rdx,[rsp+0x48]; mov
+    // rcx,rsi`, and statusinfo's is +3EA930, skill's +3EAE70. A caller loads the
+    // global into rcx immediately before the call, so the global is the one
+    // `mov rcx,[rip+x]; call getter` pair, which is what kSig_GetterCallSite
+    // finds: statusinfo's global is +73F2228 on 375 call sites and skill's is
+    // +73F2230 on 383.
+    inline constexpr const char* kSig_TableGetterV3 =
+        "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 57 48 83 EC 30 8B EA 48 8B F1 3B 51 20 "
+        "0F 83 ?? ?? ?? ?? 48 8B 49 08 E8 ?? ?? ?? ?? 84 C0 0F 84";
+    inline constexpr const char* kSig_GetterSlowCallV3 = "48 8D 54 24 48 48 8B CE E8";
+    inline constexpr unsigned kOff_GetterSlowCallV3_Call = 8;   // the E8, whose rel32 follows
+    inline constexpr unsigned kMax_GetterToSlowCallV3 = 0x120;
+    inline constexpr const char* kSig_GetterCallSite = "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ??";
+
+    // The 3840 container, in the table object: the row vector is {items +0x18,
+    // u32 size +0x20, u32 capacity +0x24}. An entry is 0x30 bytes, written by
+    // the header parse at +29797A0 in this order: u32 key, an engine string
+    // (the row's name) at +0x08, u32 pack offset +0x10, u32 size +0x14, u8 pack
+    // index +0x18, the def pointer +0x20 and a u64 +0x28 the getter sets to now
+    // plus 30,000 ms when it hands the def out. The name sits in the entry and
+    // no longer in the def, so a row has a readable name before its def is built.
+    inline constexpr unsigned kOff_V3_Rows        = 0x18;
+    inline constexpr unsigned kOff_V3_RowCount    = 0x20;
+    inline constexpr unsigned kRec_V3_EntryBytes  = 0x30;
+    inline constexpr unsigned kOff_V3_EntryName   = 0x08;
+    inline constexpr unsigned kOff_V3_EntryDef    = 0x20;
 
     // Table object: u32 row count at +0x08, def[] pointer at +0x50 or +0x58
     // depending on build. Both are tried and whichever yields readable string
@@ -204,6 +248,36 @@ namespace sm::sig
     inline constexpr unsigned kOff_Skill_DamageType   = 0x12; // u8
     inline constexpr unsigned kOff_Skill_UiType       = 0x0F; // u8
     inline constexpr unsigned kOff_Skill_MaxLevel     = 0x24; // u32
+
+    // Every def offset the plugin reads, in one place per record generation.
+    // Exe 1.0.0.3840 dropped the inline string key and the u32 key moved to +0,
+    // so the status and skill records shrank by 4 bytes up to _cooltime and by
+    // 8 after it; the SkillInfo loader at +18074D0 and the StatusInfo loader
+    // read `_key` into [rdi], `_staticInfoIndex` into [rdi+4] and `_isBlocked`
+    // into [rdi+8]. The 3840 column is from lay.py over both loaders, which walks
+    // each from its own function start instead of a padded window. The index is
+    // read at +4, the row the game passed to its def builder (`movzx eax,r8w` at
+    // +3E7402), and checked against `_statusIndexXXXXX` at +0x28.
+    struct DefLayout
+    {
+        unsigned statusIndex, statusKeyHash, statusUsePercent;
+        unsigned skillUseList, skillDriverList;
+        unsigned skillApplyType, skillCooltime, skillIsUiAllowed, skillAllowLowRes;
+        unsigned skillIsNoAlert, skillDamageType, skillUiType, skillMaxLevel;
+        unsigned statusIndexCheck;      // a second copy of the row index, 0 when there is none
+    };
+    inline constexpr DefLayout kLayout_Pre3840 = {
+        kOff_Status_Index, kOff_Status_KeyHash, kOff_Status_UsePercent,
+        kOff_Skill_UseResourceStatList, kOff_Skill_UseDriverResourceStatList,
+        kOff_Skill_ApplyType, kOff_Skill_Cooltime, kOff_Skill_IsUiAllowed, kOff_Skill_AllowLowRes,
+        kOff_Skill_IsNoAlert, kOff_Skill_DamageType, kOff_Skill_UiType, kOff_Skill_MaxLevel,
+        0 };
+    inline constexpr DefLayout kLayout_3840 = {
+        0x04, 0x34, 0x12,
+        0xA0, 0xC0,
+        0x0D, 0x2C, 0x0C, 0x0A,
+        0x0F, 0x0E, 0x0B, 0x20,
+        0x28 };
 
     // A list field is {items, size, capacity} and **not** {begin, end}. Read
     // off its reader at RVA 0x015278D0 on 2976 (0x01730D30 on 3392, the same

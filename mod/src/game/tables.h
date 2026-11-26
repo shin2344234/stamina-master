@@ -22,9 +22,18 @@ namespace sm::tables
         uintptr_t object = 0;   // the table itself
         uint32_t  rows   = 0;
         unsigned  defsOff = 0;  // whichever of DefsA / DefsB / Rows produced string keys
-        bool      rowEntries = false; // the 3663 container: 0x18-byte rows, def at +8
+        // Container generation. 0 is an array of def pointers, 1 the 3663
+        // container (0x18-byte rows, def at +8) and 2 the 3840 one (0x30-byte
+        // rows, name at +8, def at +0x20).
+        unsigned  gen = 0;
+        bool      rowEntries = false; // gen 1
         bool      viaRtti = false;
     };
+
+    // The def offsets that go with this table's container. Both changed in the
+    // same build, so the container generation picks them.
+    const sig::DefLayout& Layout(const Table& t);
+    const char* ContainerName(const Table& t);
 
     // One copied record, and how much of it was readable.
     struct Rec
