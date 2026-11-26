@@ -79,7 +79,7 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.05.01 (exe 1.0.0.3732). UsePercent=%d ContinuousPercent=%d "
+        LOG("[mod] %s %s for Crimson Desert 2.06.00 (exe 1.0.0.3840). UsePercent=%d ContinuousPercent=%d "
             "MountPercent=%d MountRegenPercent=%d SpiritPercent=%d GuardPercent=%d GlidePercent=%d Probe=%d",
             SM_NAME, SM_VERSION, s.scale.oneOff, s.scale.continuous, s.scale.mount, s.scale.mountRegen,
             s.scale.spirit, s.scale.guard, s.scale.glide, s.probe ? 1 : 0);
