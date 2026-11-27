@@ -703,10 +703,17 @@ namespace sm::stamina
         const ListOffsets lists = ListsOf(skill);
 
         // Skill opens with its row count before the rows are filled in, so a
-        // missing name this early is a table still loading. See Apply.
+        // missing name this early is a table still loading. See Apply. On 3840
+        // the names arrive before the records: the 26 Nov 2026 run found all
+        // six rows with no def behind any of them, logged six errors, and then
+        // Apply found every cost two seconds later. So a row whose def is not
+        // built yet means wait too.
         if (!lastTry)
             for (const Row& R : rows)
-                if (tables::RowByKey(skill, R.key) < 0) return false;
+            {
+                const int row = tables::RowByKey(skill, R.key);
+                if (row < 0 || !tables::Def(skill, static_cast<uint32_t>(row))) return false;
+            }
 
         uint16_t want = 0;
         if (!StaminaIndex(status, want))
