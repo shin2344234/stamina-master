@@ -1,11 +1,20 @@
 # Stamina Master
 
-A stamina plugin for Crimson Desert 2.05.01, exe 1.0.0.3732. It still runs on
-2.05.00 and 2.04.08. The DLC moved the table layouts it reads, so 2.03.02 and older need
-1.0.3.
+A stamina plugin for Crimson Desert 2.06.00, exe 1.0.0.3840. The code for the
+older builds is still in it, so it should also run on 2.05.01, exe 1.0.0.3732,
+2.05.00 and 2.04.08, but 1.0.11 was not tried on any of those. If you stay on
+3732, 1.0.10 is the version that was built for it. The DLC moved the table
+layouts it reads, so 2.03.02 and older need 1.0.3.
 
-1.0.10 names game 2.05.01, exe 1.0.0.3732, in its ini and startup line and
-changes nothing else. It was not tested in play.
+New in 1.0.11. It reads the tables on the 26 November update, which changed how
+the game stores them, so 1.0.10 found nothing there and changed nothing. It
+waits for the status and skill tables to fill in before it writes, and it adds
+`GlidePercent`, a stamina cost for gliding alone. The 3840 port ran in the
+author's game on 26 November. The 1.0.11 build itself is not tested in play,
+and `GlidePercent` has not been played at all.
+
+1.0.10 named game 2.05.01, exe 1.0.0.3732, in its ini and startup line and
+changed nothing else. It was not tested in play.
 
 1.0.9 opens the skill table through its getter on 2.05.00, which cuts the
 caught read faults at startup to none in testing, and fixes `GuardPercent`
