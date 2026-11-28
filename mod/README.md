@@ -1,10 +1,15 @@
-# Stamina Master 1.0.11
+# Stamina Master 1.0.12
 
 For Crimson Desert 2.06.00, exe 1.0.0.3840. The code for the older builds is
 still in it, so it should also run on 2.05.01, exe 1.0.0.3732, 2.05.00 and
-2.04.08, but 1.0.11 was not tried on any of those. If you stay on 3732, 1.0.10
+2.04.08, but 1.0.12 was not tried on any of those. If you stay on 3732, 1.0.10
 is the version that was built for it. The DLC moved the table layouts it
 reads, so 2.03.02 and older need 1.0.3.
+
+New in 1.0.12: `GuardPercent` scales a blocked hit's cost only for the
+character you play, so enemy shields break again when you keep hitting them.
+At the default of 0 in 1.0.11 a soldier with a shield could block forever.
+This build is not tested in play.
 
 New in 1.0.11: it reads the tables on the 26 November update, which changed
 how the game stores them, so 1.0.10 found nothing there and changed nothing.
