@@ -354,6 +354,20 @@ namespace sm::sig
     // chain below is the only code that reads them. Its six rip-relative loads
     // are what this finds, so the values come off the running exe and no
     // address is carried between builds.
+    //
+    // The six are shared by every fighter, so through 1.0.11 writing them made
+    // enemy blocks free as well and a shield never broke (#16). They are left
+    // alone now. The cost is scaled in eax instead, at the cdqe that ends the
+    // chain, and only when the blocker is the character being played.
+    //
+    // On exe 1.0.0.3840 the chain is at 0x1A6F4D7 in the resolver at
+    // 0x1A6F070. Its first argument, saved at [rbp+0xC0], is a pointer to the
+    // blocking actor: the code reads that actor's Stamina and GuardPVRate
+    // through [[arg]+0x68]+0x20, and the cost comes off its Stamina. r15 is
+    // loaded from that slot at 0x1A6F2B7 with `mov r15,[rbp+0xC0]`, nothing
+    // writes r15 again before the chain, and the hook reads it from there.
+    // The 14 bytes the hook takes are cdqe, imul rdi,rax,0x3E8 and
+    // mov [rsp+0x48],rdi, and no branch in the function lands inside them.
     inline constexpr const char* kSig_GuardCostTiers =
         "0F B6 48 7B 84 C9 75 08 8B 05 ?? ?? ?? ?? EB 37 80 F9 01 75 08 8B 05 ?? ?? ?? ?? EB 2A "
         "80 F9 02 75 08 8B 05 ?? ?? ?? ?? EB 1D 80 F9 03 75 08 8B 05 ?? ?? ?? ?? EB 10 "
@@ -364,4 +378,30 @@ namespace sm::sig
     inline constexpr unsigned kOff_GuardCost_Disp[kGuardCostTiers] = { 10, 23, 36, 49, 67, 57 };
     inline constexpr unsigned kOff_GuardCost_End[kGuardCostTiers]  = { 14, 27, 40, 53, 71, 61 };
     inline constexpr int kGuardCost_MaxPlausible = 100000;
+    // The cdqe after the six loads, where eax holds the picked cost.
+    inline constexpr unsigned kOff_GuardCost_Hook = 71;
+    // `mov r15, [rbp+disp32]`, which must appear in the stretch before the
+    // chain for r15 to be the blocker. Looked for this far back.
+    inline constexpr const char* kSig_GuardBlockerToR15 = "4C 8B BD";
+    inline constexpr unsigned kGuardBlockerSearchBack = 0x400;
+
+    // --- The character being played -----------------------------------------
+    // Master Looter's route to the controlled actor, the body the player is
+    // driving rather than the nominal LocalPlayer. The one call site that
+    // fetches it through the services object: mov rcx,[rip+X]; mov rcx,[rcx+10h];
+    // call accessor; nop; cmp [rbp+0xC0], reg8; je. The accessor reads a
+    // controller at [svc+disp8] (the first `mov rdi,[rcx+disp8]`) and its actor
+    // at [controller+disp32] (the first `mov r14,[rax+disp32]` after that).
+    // Exe 1.0.0.3840: site 0xC159E8, global 0x73F0D58, accessor 0xA0C5E0,
+    // controller +0x58, actor +0xD8, the same values Master Looter logs.
+    inline constexpr const char* kSig_ControlSite =
+        "48 8B 0D ?? ?? ?? ?? 48 8B 49 10 E8 ?? ?? ?? ?? 90 44 38 ?? C0 00 00 00 0F 84";
+    inline constexpr unsigned kOff_ControlSite_Call = 11;
+    inline constexpr unsigned kOff_ControlSite_Svc  = 0x10;
+    inline constexpr unsigned kControlAccessorScan  = 0x180;
+
+    // Actor layout, also Master Looter's. The entity id's top byte is 0xA0
+    // for a player character.
+    inline constexpr unsigned kOff_Ent_Eid   = 0x60;
+    inline constexpr unsigned kOff_Ent_Comps = 0x68;
 }

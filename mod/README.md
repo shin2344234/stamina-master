@@ -86,14 +86,17 @@ Sprinting, climbing, swimming, the glider, the rocket pack, rolls, jumps,
 weapon swings, grapples, bow shots, the war machine's weapons, and riding.
 With `SpiritPercent` below 100, Spirit costs as well.
 
-`GuardPercent` is the cost of a blocked hit. The game charges that apart from
-every skill, from six settings picked by how hard the hit was, with defaults
-of 10, 30, 45, 90, 150 and 300 stamina. The plugin finds them by the code that
-reads them and scales them. At 0 blocking is free, and a guard no longer breaks
-from running out of stamina. At 100 the game keeps its own numbers.
+`GuardPercent` is what a hit you block costs you. The game charges that apart
+from every skill, from six settings picked by how hard the hit was, with
+defaults of 10, 30, 45, 90, 150 and 300 stamina. Every fighter's block reads
+the same six, so the plugin leaves them alone and scales the cost only when
+the one blocking is the character you are playing. At 0 your blocking is free
+and your guard no longer breaks from running out of stamina. A shield you
+keep hitting still breaks, because enemies pay the game's cost. At 100 the
+game keeps its own numbers for everyone.
 
-Those six read 0 until the game fills them in, so the plugin asks again once a
-second, for up to two minutes, until they hold real values.
+Up to 1.0.11 the plugin wrote the six settings themselves, which made enemy
+blocks free too, and a shield-carrying soldier could block forever.
 
 `GlidePercent` sets the glider on its own: holding it open, gliding, gliding
 fast and the stamina its dash takes, for Kliff's wings and Damian's shield

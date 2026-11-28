@@ -133,17 +133,16 @@ namespace
         // nothing, left them at the game's numbers with no line in the log. A
         // value out of range still means nothing is written anywhere.
         //
-        // With every skill setting at 100 the loop above ends on its first pass,
-        // before the game has filled in the six costs, so ApplyGuard is asked
-        // once a second until they are there, for up to two minutes.
+        // The hook does not depend on the six costs being filled in, only on
+        // the code being there, so a second pass is rare.
         if (!g_stop.load() && sm::stamina::SettingsInRange(s.scale))
         {
             sm::mem::FaultSite site("guard");
             for (int pass = 1; !g_stop.load(); ++pass)
             {
-                if (sm::stamina::ApplyGuard(s.scale.guard, pass == 120)) break;
+                if (sm::stamina::ApplyGuard(s.scale.guard, s.probe, pass == 120)) break;
                 if (pass == 1)
-                    LOG("[guard] the blocked hit costs are not set up yet; waiting on them");
+                    LOG("[guard] the code that picks a blocked hit's cost is not there yet; waiting on it");
                 for (int i = 0; i < 2 && !g_stop.load(); ++i) Sleep(500);
             }
         }
@@ -155,9 +154,8 @@ namespace
         // behind Probe because a session that is working has nothing to learn
         // from it, and a bug report has everything.
         //
-        // RecheckGuard is outside Probe. The blocked hit costs are named engine
-        // settings rather than table rows, and a game that reloads its settings
-        // would undo the write, so those two looks also put them back.
+        // GuardSummary is outside Probe. It says how many blocked hits the
+        // player-only hook has seen and whose they were.
         for (int minute = 1; minute <= 2 && !g_stop.load(); ++minute)
         {
             for (int i = 0; i < 120 && !g_stop.load(); ++i) Sleep(500);
@@ -166,8 +164,8 @@ namespace
             _snprintf_s(when, _countof(when), _TRUNCATE, "after %d minute%s", minute,
                         minute == 1 ? "" : "s");
             {
-                sm::mem::FaultSite site("guard recheck");
-                sm::stamina::RecheckGuard(when);
+                sm::mem::FaultSite site("guard summary");
+                sm::stamina::GuardSummary(when);
             }
             if (s.probe)
             {
@@ -239,6 +237,7 @@ namespace sm::Mod
             CloseHandle(g_thread);
             g_thread = nullptr;
         }
+        stamina::StopGuard();
         Log::Shutdown();
     }
 }

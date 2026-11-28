@@ -58,6 +58,7 @@ add_library(StaminaMaster SHARED
     src/game/farhook.cpp
     src/game/tables.cpp
     src/game/stamina.cpp
+    src/game/guard.cpp
     src/resources.rc
 )
 

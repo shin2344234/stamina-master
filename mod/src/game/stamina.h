@@ -86,16 +86,23 @@ namespace sm::stamina
     // hit costs may be written, since those do not depend on the skill table.
     bool SettingsInRange(const Scale& scale);
 
-    // Scale the six blocked-hit costs. Finds them by the code that reads them,
-    // and if that code has changed it says so and leaves the game alone.
-    // Returns false when it is worth asking again: the code is not there yet,
-    // or a cost still reads 0 because the game has not set it up. On lastTry
-    // it says why and returns true.
-    bool ApplyGuard(int percent, bool lastTry);
+    // Scale what a blocked hit costs the player, and only the player. The six
+    // engine settings the cost comes from are shared by every fighter, so they
+    // are never written. A hook at the end of the code that picks one scales
+    // the picked cost when the blocker is the character being played, and
+    // passes every other blocker's through. If the code has changed, or the
+    // played character cannot be found, it says so and leaves the game alone.
+    // Returns false when it is worth asking again; on lastTry it says why and
+    // returns true. With probe set, every blocked hit gets a line.
+    bool ApplyGuard(int percent, bool probe, bool lastTry);
 
-    // Read the six back on a timer and put them back if something else has
-    // changed them. Does nothing when ApplyGuard wrote nothing.
-    void RecheckGuard(const char* when);
+    // How many blocked hits the hook has seen, and whose. Does nothing when
+    // the hook is not in.
+    void GuardSummary(const char* when);
+
+    // Takes the hook out and stops its log thread. For an unload while the
+    // game keeps running; at process exit there is nothing to undo.
+    void StopGuard();
 
     // The research report. Independent of Apply and off by default. Returns
     // false while the named skill rows are not all in the table yet, so the
